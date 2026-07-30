@@ -1,0 +1,119 @@
+# Korpus-Manifest — Anlagen-Copilot
+#
+# Zweck:
+#   - Reproduzierbarkeit: scripts/download_corpus.py liest diese Datei
+#   - Provenance: Quelle, Ausgabe und Bezugsdatum je Dokument (Compliance/Revision)
+#   - Anzeige-Titel für Quellenangaben in den Antworten des Copiloten
+#
+# Die PDFs selbst liegen in data/raw/ und sind gitignored (Urheberrecht).
+
+corpus:
+  name: Anlagen-Copilot Referenzkorpus
+  language: de
+  description: >-
+    Technische Dokumentation zweier Gerätefamilien aus der Antriebstechnik:
+    Mechanik (SEW-Eurodrive Getriebe/Motoren) und Antriebselektronik
+    (Siemens SINAMICS G120C). Bewusst heterogen in Dokumenttyp und Struktur,
+    mit inhaltlichen Querverbindungen für Multi-Hop-Fragen.
+  raw_dir: data/raw
+
+documents:
+  - id: sew-getriebe-ba
+    filename: sew-getriebe-betriebsanleitung-rfks.pdf
+    title: Betriebsanleitung Getriebe Typenreihen R.., F.., K.., S..
+    manufacturer: SEW-EURODRIVE
+    doc_type: betriebsanleitung      # fließtext, kapitelstruktur
+    domain: mechanik
+    edition: 07/2026                   
+    pages: 236
+    url: https://download.sew-eurodrive.com/download/pdf/09190902.pdf
+    retrieved: 2026-07-29
+    notes: >-
+      Enthält Wartungsintervalle, Ölwechselregeln und Inbetriebnahme.
+      Partnerdokument zur Schmierstofftabelle (Multi-Hop).
+
+  - id: sew-schmierstoffe
+    filename: sew-schmierstofftabelle-getriebeoele.pdf
+    title: Schmierstofftabelle / Lieferantenfreigabe Getriebeöle
+    manufacturer: SEW-EURODRIVE
+    doc_type: tabellenwerk           # nahezu reine tabellen
+    domain: mechanik
+    edition: 19.05.2026
+    pages: 34
+    url: https://media.sew-eurodrive.com/sew_master/media/sew-eurodrive/pdf/produkte-1/schmierstoffe/6308546132-de.pdf
+    retrieved: 2026-07-29
+    notes: >-
+      Härtetest fürs Chunking: Viskositätsklassen, Handelsnamen,
+      Temperaturbereiche. Liefert die konkreten Werte zu den Regeln
+      aus sew-getriebe-ba.
+
+  - id: sew-motoren-drn
+    filename: sew-motoren-drn-dru-betriebsanleitung.pdf
+    title: Betriebsanleitung Drehstrommotoren DRN.., DRU.., DR2S.., DR2L..
+    manufacturer: SEW-EURODRIVE
+    doc_type: betriebsanleitung
+    domain: mechanik
+    edition: 06/2025
+    pages: 292
+    url: https://download.sew-eurodrive.com/download/pdf/31961738.pdf
+    retrieved: 2026-07-29
+    notes: >-
+      Aktuelle Ausgabe. Enthält Anschlussbilder und Verweise auf
+      mitgeltende Unterlagen — gut für Fragen nach Dokumentbezügen.
+
+  - id: sew-katalog-projektierung
+    filename: sew-katalog-getriebemotoren-projektierung.pdf
+    title: Katalog Getriebemotoren — Projektierung und Antriebsauslegung
+    manufacturer: SEW-EURODRIVE
+    doc_type: katalog                # kennwerttabellen, auslegungsdiagramme
+    domain: mechanik
+    edition: 07/2006
+    pages: 248
+    url: https://download.sew-eurodrive.com/download/pdf/11358807.pdf
+    retrieved: 2026-07-29
+    notes: Wirkungsgrade, Bauformen, Kennwerte. Diagramme als Erkennungs-Härtefall.
+
+  - id: siemens-g120c-kurz
+    filename: siemens-g120c-kompaktbetriebsanleitung.pdf
+    title: Betriebsanleitung Niederspannungsumrichter SINAMICS G120C
+    manufacturer: Siemens
+    doc_type: betriebsanleitung      # vollständig, fließtext, kein Kurzformat
+    domain: elektronik
+    edition: 07/2015, FW V4.7 SP3
+    pages: 428
+    url: https://media.automation24.com/manual/de/109478830_G120C_BA7_0715_PI_deu.pdf
+    retrieved: 2026-07-29
+    notes: >-
+      KORRIGIERT: entgegen Dateiname/ID handelt es sich um die vollständige
+      Betriebsanleitung (Titelblatt: "Betriebsanleitung, 07/2015, FW V4.7
+      SP3"), nicht um eine Kompaktversion — 428 Seiten, kaum kürzer als das
+      Listenhandbuch. Gegenstück zum Listenhandbuch bleibt gültig
+      (Fehlerbehebung im Fließtext statt Tabellenform), der Kurz/Lang-Kontrast
+      im Korpus entfällt damit aber. id/filename unverändert gelassen, um
+      Referenzen nicht zu brechen.
+
+  - id: siemens-g120c-liste
+    filename: siemens-g120c-listenhandbuch-parameter.pdf
+    title: Listenhandbuch SINAMICS G120C — Parameter, Störungen und Warnungen
+    manufacturer: Siemens
+    doc_type: listenhandbuch         # extrem tabellenlastig
+    domain: elektronik
+    edition: 04/2014
+    pages: 572                    # TODO: sehr umfangreich — ggf. Auszug!
+    url: https://support.industry.siemens.com/cs/attachments/99683780/G120C_List_Manual_LH13_0414_deu.pdf
+    retrieved: 2026-07-29
+    notes: >-
+      ACHTUNG: mehrere hundert Seiten. Falls Seitenbudget gesprengt wird,
+      nur den Kapitelbereich "Störungen und Warnungen" extrahieren und
+      dies hier dokumentieren (excerpt_pages).
+    # excerpt_pages: [null, null]    # bei Auszug: von/bis eintragen
+
+# Geplante Multi-Hop-Fragen (Querverbindungen im Korpus).
+# Dient als Referenz beim Schreiben des Eval-Sets.
+cross_references:
+  - question_pattern: Ölauswahl nach Getriebetyp und Umgebungstemperatur
+    documents: [sew-getriebe-ba, sew-schmierstoffe]
+  - question_pattern: Störcode am Umrichter und Auswirkung auf den Motor
+    documents: [siemens-g120c-liste, sew-motoren-drn]
+  - question_pattern: Auslegung vs. zulässige Betriebsbedingungen
+    documents: [sew-katalog-projektierung, sew-getriebe-ba]

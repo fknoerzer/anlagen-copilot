@@ -22,4 +22,7 @@ htmlcov/
 .idea/
 
 # Data
-data/
+data/*
+!data/raw/
+data/raw/*
+!data/raw/corpus.yaml
