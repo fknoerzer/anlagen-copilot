@@ -20,3 +20,6 @@ htmlcov/
 # Editors
 .vscode/
 .idea/
+
+# Data
+data/
