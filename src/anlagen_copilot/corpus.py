@@ -9,7 +9,15 @@ from pathlib import Path
 from typing import Literal, Self
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, PositiveInt, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    HttpUrl,
+    PositiveInt,
+    field_validator,
+    model_validator,
+)
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_CORPUS_PATH = _PROJECT_ROOT / "data" / "raw" / "corpus.yaml"
@@ -19,7 +27,19 @@ class CorpusMeta(BaseModel):
     name: str
     language: str
     description: str
-    raw_dir: str
+    raw_dir: Path
+
+    @field_validator("raw_dir")
+    @classmethod
+    def resolve_raw_dir(cls, p: Path) -> Path:
+        """Löst raw_dir gegen den Projekt-Root auf, falls relativ angegeben.
+
+        Ohne das wäre raw_dir vom aktuellen Arbeitsverzeichnis beim Aufruf
+        abhängig statt von der Position des Manifests selbst — würde main()
+        aus einem anderen Verzeichnis laufen, würde in einen falschen Ort
+        geschrieben oder gelesen.
+        """
+        return p if p.is_absolute() else (_PROJECT_ROOT / p).resolve()
 
 
 class CorpusDocument(BaseModel):
