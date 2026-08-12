@@ -7,7 +7,9 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: anlagen_copilot
+          POSTGRES_PASSWORD: anlagen_copilot
+          POSTGRES_DB: anlagen_copilot
         ports: ["5432:5432"]
         options: >-
           --health-cmd pg_isready --health-interval 10s
@@ -19,4 +21,9 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy src
+      - run: uv run deptry .
       - run: uv run pytest --cov=src
+        env:
+          AZURE_OPENAI_ENDPOINT: https://example.com
+          AZURE_OPENAI_API_KEY: dummy
+          POSTGRES_DSN: postgresql://anlagen_copilot:anlagen_copilot@localhost:5432/anlagen_copilot

@@ -5,10 +5,16 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.3.0
+  - repo: local
     hooks:
       - id: mypy
-        additional_dependencies:
-          - pydantic
-          - pydantic-settings
+        name: mypy
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: true
+      - id: deptry
+        name: deptry
+        entry: uv run deptry .
+        language: system
+        pass_filenames: false

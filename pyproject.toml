@@ -29,6 +29,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "deptry>=0.25.1",
     "mypy>=2.3.0",
     "pre-commit>=4.6.1",
     "pytest>=9.1.1",
@@ -46,3 +47,10 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.mypy]
 strict = true
 ignore_missing_imports = true
+
+[tool.deptry.per_rule_ignores]
+# anlagen_copilot ist das eigene Package, kein transitives Fremdpaket —
+# deptry erkennt Self-Imports im src-Layout hier fälschlich als DEP003.
+DEP003 = ["anlagen_copilot"]
+# Bewusst vorab für geplante Arbeit eingetragen, noch nicht verdrahtet.
+DEP002 = ["fastapi", "langchain", "openai", "pgvector"]
