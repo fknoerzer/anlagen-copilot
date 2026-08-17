@@ -26,3 +26,4 @@ data/*
 !data/raw/
 data/raw/*
 !data/raw/corpus.yaml
+!data/eval_set.yaml
