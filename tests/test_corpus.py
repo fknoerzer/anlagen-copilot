@@ -31,6 +31,13 @@ def _make_document(**overrides: object) -> CorpusDocument:
 
 
 def test_load_corpus_succeeds(tmp_path: Path) -> None:
+    """Nutzt bewusst handgeschriebenes YAML statt _make_document().
+
+    _make_document() liefert ein bereits validiertes CorpusDocument-Objekt,
+    kein YAML — dieser Test soll aber die Datei-/Parsing-Pipeline von
+    load_corpus() prüfen, möglichst nah an dem, was tatsächlich von Hand in
+    corpus.yaml steht (inkl. YAML-typischer Stolperfallen wie Einrückung).
+    """
     f = tmp_path / "corpus.yaml"
     f.write_text(
         """
