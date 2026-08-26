@@ -1,21 +1,10 @@
 """Tests für scripts/init_db.py: Schema-Setup (Extension + chunks-Tabelle)."""
 
-import pytest
-
-from anlagen_copilot.config import get_settings
 from anlagen_copilot.db import get_connection
 from anlagen_copilot.scripts.init_db import init_db
 
-
-@pytest.fixture(autouse=True)
-def _db_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://example.com")
-    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy")
-    monkeypatch.setenv(
-        "POSTGRES_DSN",
-        "postgresql://anlagen_copilot:anlagen_copilot@localhost:5432/anlagen_copilot",
-    )
-    get_settings.cache_clear()
+# Kein `db_schema` nötig: beide Tests rufen `init_db()` selbst auf und legen die
+# Extension damit an, bevor `get_connection()` sie braucht. Env aus conftest.py.
 
 
 def test_init_db_is_idempotent() -> None:
