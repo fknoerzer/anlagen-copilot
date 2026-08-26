@@ -71,7 +71,14 @@ class CorpusDocument(BaseModel):
     retrieved: date
     edition: str | None = None
     encrypted: bool = False
-    excerpt_pages: tuple[int, int] | None = None
+    excerpt_pages: tuple[int, int] | None = Field(
+        default=None,
+        description=(
+            "Nur dieser Seitenbereich wird indexiert, beide Grenzen einschließend "
+            "(453, 548) = 96 Seiten. None = ganzes Dokument. Zählung ist die des "
+            "Original-PDFs und bleibt es auch in chunks.page."
+        ),
+    )
     notes: str | None = None
 
     @model_validator(mode="after")

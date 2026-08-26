@@ -102,14 +102,14 @@ documents:
     doc_type: listenhandbuch         # extrem tabellenlastig
     domain: elektronik
     edition: 04/2014
-    pages: 572                    # TODO: sehr umfangreich — ggf. Auszug!
+    pages: 572                    
     url: https://support.industry.siemens.com/cs/attachments/99683780/G120C_List_Manual_LH13_0414_deu.pdf
     retrieved: 2026-07-29
     notes: >-
       ACHTUNG: mehrere hundert Seiten. Falls Seitenbudget gesprengt wird,
       nur den Kapitelbereich "Störungen und Warnungen" extrahieren und
       dies hier dokumentieren (excerpt_pages).
-    # excerpt_pages: [null, null]    # bei Auszug: von/bis eintragen
+    excerpt_pages: [453, 548]    
 
 # Geplante Multi-Hop-Fragen (Querverbindungen im Korpus).
 # Dient als Referenz beim Schreiben des Eval-Sets.
