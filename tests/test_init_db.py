@@ -27,6 +27,7 @@ def test_init_db_creates_expected_chunks_schema() -> None:
 
     assert columns == [
         ("id", "bigint"),
+        ("strategy", "text"),
         ("document_id", "text"),
         ("page", "integer"),
         ("content", "text"),
