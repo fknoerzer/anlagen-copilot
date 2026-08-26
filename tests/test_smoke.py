@@ -1,5 +1,5 @@
-import anlagen_copilot
+import anlagen_copilot.cli as cli
 
 
 def test_main_exists() -> None:
-    assert callable(anlagen_copilot.main)
+    assert callable(cli.main)

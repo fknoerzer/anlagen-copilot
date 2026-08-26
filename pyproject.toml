@@ -1,7 +1,7 @@
 [project]
 name = "anlagen-copilot"
 version = "0.1.0"
-description = "Add your description here"
+description = "RAG-Copilot für Anlagen- und Maschinendokumentation mit Seitenbelegen"
 readme = "README.md"
 authors = [
     { name = "fknorzer", email = "knoerzerflorian@web.de" }
@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.scripts]
-anlagen-copilot = "anlagen_copilot:main"
+anlagen-copilot = "anlagen_copilot.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.11.19,<0.12.0"]
