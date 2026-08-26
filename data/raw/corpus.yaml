@@ -28,6 +28,7 @@ documents:
     pages: 236
     url: https://download.sew-eurodrive.com/download/pdf/09190902.pdf
     retrieved: 2026-07-29
+    encrypted: True
     notes: >-
       Enthält Wartungsintervalle, Ölwechselregeln und Inbetriebnahme.
       Partnerdokument zur Schmierstofftabelle (Multi-Hop).
@@ -57,6 +58,7 @@ documents:
     pages: 292
     url: https://download.sew-eurodrive.com/download/pdf/31961738.pdf
     retrieved: 2026-07-29
+    encrypted: True
     notes: >-
       Aktuelle Ausgabe. Enthält Anschlussbilder und Verweise auf
       mitgeltende Unterlagen — gut für Fragen nach Dokumentbezügen.
@@ -71,6 +73,7 @@ documents:
     pages: 248
     url: https://download.sew-eurodrive.com/download/pdf/11358807.pdf
     retrieved: 2026-07-29
+    encrypted: True
     notes: Wirkungsgrade, Bauformen, Kennwerte. Diagramme als Erkennungs-Härtefall.
 
   - id: siemens-g120c-kurz
