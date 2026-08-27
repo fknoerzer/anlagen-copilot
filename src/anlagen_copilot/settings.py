@@ -27,6 +27,8 @@ class Settings(BaseSettings):
 
     embedding_dimensions: int = 1536
 
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+
 
 @lru_cache
 def get_settings() -> Settings:

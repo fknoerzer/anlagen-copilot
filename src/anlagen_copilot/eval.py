@@ -4,6 +4,7 @@ Prüft Struktur und Konsistenz der Eval-Fragen, u. a. gegen corpus.yaml
 (load_corpus), damit document_id-Tippfehler nicht unbemerkt bleiben.
 """
 
+import logging
 from pathlib import Path
 from typing import Literal, Self
 
@@ -11,6 +12,8 @@ import yaml
 from pydantic import BaseModel, ConfigDict, PositiveInt, model_validator
 
 from anlagen_copilot.corpus import load_corpus
+
+logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_EVALSET_PATH = _PROJECT_ROOT / "data" / "eval_set.yaml"
@@ -54,9 +57,9 @@ class EvalQuestion(BaseModel):
         has_content = bool(self.expected_sources or self.expected_facts)
 
         if is_unanswerable and has_content:
-            raise ValueError(f"{self.id}: unanswerable-Frage darf keine Quellen/Fakten haben")
+            raise ValueError(f"{self.id}: unanswerable question must not have sources or facts")
         if not is_unanswerable and not has_content:
-            raise ValueError(f"{self.id}: beantwortbare Frage braucht Quellen und Fakten")
+            raise ValueError(f"{self.id}: answerable question needs sources and facts")
         return self
 
 
@@ -87,7 +90,7 @@ class EvalSet(BaseModel):
                 if source.document_id not in corpus_doc_ids:
                     raise ValueError(
                         f"{question.id}: document_id '{source.document_id}' "
-                        "nicht in corpus.yaml gefunden"
+                        "not found in corpus.yaml"
                     )
 
         return self
@@ -109,7 +112,9 @@ def load_eval(path: Path = DEFAULT_EVALSET_PATH) -> EvalSet:
             gegen corpus.yaml inkonsistent ist (z. B. unbekannte document_id).
     """
     if not path.is_file():
-        raise FileNotFoundError(f"EvalSet-Manifest nicht gefunden: {path}")
+        raise FileNotFoundError(f"Eval set manifest not found: {path}")
 
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-    return EvalSet.model_validate(raw)
+    eval_set = EvalSet.model_validate(raw)
+    logger.info("Eval set loaded: %d questions from %s", len(eval_set.questions), path)
+    return eval_set

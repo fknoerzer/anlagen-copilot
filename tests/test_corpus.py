@@ -106,15 +106,15 @@ def test_excerpt_pages_accepts_valid_range() -> None:
 
 
 def test_excerpt_pages_rejects_start_below_one() -> None:
-    with pytest.raises(ValueError, match="Startseite"):
+    with pytest.raises(ValueError, match="first page"):
         _make_document(pages=100, excerpt_pages=(0, 10))
 
 
 def test_excerpt_pages_rejects_start_not_before_end() -> None:
-    with pytest.raises(ValueError, match="kleiner als Ende"):
+    with pytest.raises(ValueError, match="must be less than end"):
         _make_document(pages=100, excerpt_pages=(20, 10))
 
 
 def test_excerpt_pages_rejects_end_beyond_total_pages() -> None:
-    with pytest.raises(ValueError, match="letzten Seite"):
+    with pytest.raises(ValueError, match="past the last page"):
         _make_document(pages=100, excerpt_pages=(10, 200))

@@ -1,4 +1,5 @@
 import io
+import logging
 from pathlib import Path
 from typing import BinaryIO
 
@@ -6,6 +7,9 @@ import httpx
 from pypdf import PdfReader
 
 from anlagen_copilot.corpus import CorpusDocument
+from anlagen_copilot.errors import DocumentError
+
+logger = logging.getLogger(__name__)
 
 
 def download_document(doc: CorpusDocument, raw_dir: Path) -> None:
@@ -18,18 +22,28 @@ def download_document(doc: CorpusDocument, raw_dir: Path) -> None:
     übernehmen würde).
 
     Raises:
-        httpx.HTTPStatusError: Bei 4xx/5xx-Antworten des Servers.
-        ValueError: Wenn die heruntergeladene PDF nicht die im Manifest
-            angegebene Seitenzahl hat (siehe check_pages).
+        DocumentError: Bei 4xx/5xx-Antworten des Servers, oder wenn die
+            heruntergeladene PDF nicht die im Manifest angegebene Seitenzahl
+            hat (siehe check_pages). Beides betrifft genau dieses Dokument.
+            Netzfehler (Timeout, kein DNS) fliegen dagegen als httpx-Exception
+            durch — sie betreffen jeden weiteren Download ebenso.
     """
     target = raw_dir / doc.filename
 
     if target.is_file():
+        logger.debug("%s: already present, download skipped", doc.filename)
         return
 
-    response = httpx.get(str(doc.url), timeout=30).raise_for_status()
+    logger.info("%s: downloading from %s", doc.filename, doc.url)
+    response = httpx.get(str(doc.url), timeout=30)
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise DocumentError(f"{doc.filename}: server responded {response.status_code}") from exc
+
     check_pages(doc.pages, io.BytesIO(response.content), label=doc.filename)
     target.write_bytes(response.content)
+    logger.info("%s: saved %.1f MB", doc.filename, len(response.content) / 1_048_576)
 
 
 def check_pages(number_pages: int, source: Path | BinaryIO, *, label: str) -> None:
@@ -42,13 +56,12 @@ def check_pages(number_pages: int, source: Path | BinaryIO, *, label: str) -> No
     aus einer Response) sein.
 
     Raises:
-        ValueError: Wenn die tatsächliche Seitenzahl von number_pages abweicht.
+        DocumentError: Wenn die tatsächliche Seitenzahl von number_pages abweicht.
     """
     reader = PdfReader(source)
     actual_pages = len(reader.pages)
 
     if actual_pages != number_pages:
-        raise ValueError(
-            f"{label}: erwartete {number_pages} Seiten laut Manifest, "
-            f"PDF hat tatsächlich {actual_pages}"
+        raise DocumentError(
+            f"{label}: expected {number_pages} pages per manifest, PDF actually has {actual_pages}"
         )

@@ -4,6 +4,7 @@ Single Source of Truth für Ingestion, Retrieval-Filter, Quellenangaben
 und Provenance-Nachweis — siehe corpus.yaml selbst für den Zweck.
 """
 
+import logging
 from datetime import date
 from pathlib import Path
 from typing import Literal, Self
@@ -18,6 +19,8 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+
+logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_CORPUS_PATH = _PROJECT_ROOT / "data" / "raw" / "corpus.yaml"
@@ -97,13 +100,11 @@ class CorpusDocument(BaseModel):
 
         start, end = excerpt
         if start < 1:
-            raise ValueError("excerpt_pages: Startseite muss >= 1 sein")
+            raise ValueError("excerpt_pages: first page must be >= 1")
         if start >= end:
-            raise ValueError(f"excerpt_pages: Start ({start}) muss kleiner als Ende ({end}) sein")
+            raise ValueError(f"excerpt_pages: start ({start}) must be less than end ({end})")
         if end > self.pages:
-            raise ValueError(
-                f"excerpt_pages: Ende ({end}) liegt hinter der letzten Seite ({self.pages})"
-            )
+            raise ValueError(f"excerpt_pages: end ({end}) is past the last page ({self.pages})")
         return self
 
 
@@ -133,7 +134,9 @@ def load_corpus(path: Path = DEFAULT_CORPUS_PATH) -> Corpus:
         ValidationError: Wenn das Manifest strukturell fehlerhaft ist.
     """
     if not path.is_file():
-        raise FileNotFoundError(f"Korpus-Manifest nicht gefunden: {path}")
+        raise FileNotFoundError(f"Corpus manifest not found: {path}")
 
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-    return Corpus.model_validate(raw)
+    corpus = Corpus.model_validate(raw)
+    logger.info("Corpus manifest loaded: %d documents from %s", len(corpus.documents), path)
+    return corpus

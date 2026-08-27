@@ -7,6 +7,7 @@ import pytest
 from pypdf import PdfWriter
 
 from anlagen_copilot.corpus import CorpusDocument
+from anlagen_copilot.errors import DocumentError
 from anlagen_copilot.scripts.download_corpus import check_pages, download_document
 
 
@@ -56,7 +57,7 @@ def test_check_pages_rejects_mismatch(tmp_path: Path) -> None:
     pdf_path = tmp_path / "doc.pdf"
     _make_pdf(pdf_path, pages=3)
 
-    with pytest.raises(ValueError, match="erwartete 5"):
+    with pytest.raises(DocumentError, match="expected 5"):
         check_pages(5, pdf_path, label=pdf_path.name)
 
 
@@ -98,7 +99,7 @@ def test_download_document_raises_on_http_error(
 
     monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(404))
 
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(DocumentError, match="server responded 404"):
         download_document(doc, tmp_path)
 
     assert not (tmp_path / "broken.pdf").is_file()
@@ -112,7 +113,7 @@ def test_download_document_raises_on_page_mismatch_and_leaves_no_file(
 
     monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(200, pdf_bytes))
 
-    with pytest.raises(ValueError, match="erwartete 5"):
+    with pytest.raises(DocumentError, match="expected 5"):
         download_document(doc, tmp_path)
 
     assert not (tmp_path / "wrong-pages.pdf").is_file()

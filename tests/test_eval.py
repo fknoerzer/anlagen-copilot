@@ -92,7 +92,7 @@ questions:
 """,
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="Frage braucht Quellen und Fakten"):
+    with pytest.raises(ValueError, match="answerable question needs sources and facts"):
         load_eval(f)
 
 
@@ -138,7 +138,7 @@ questions:
 """,
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="darf keine Quellen/Fakten"):
+    with pytest.raises(ValueError, match="must not have sources or facts"):
         load_eval(f)
 
 
@@ -165,5 +165,5 @@ questions:
 """,
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="nicht in corpus.yaml gefunden"):
+    with pytest.raises(ValueError, match="not found in corpus.yaml"):
         load_eval(f)

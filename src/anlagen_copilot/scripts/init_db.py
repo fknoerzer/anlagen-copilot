@@ -1,5 +1,10 @@
+import logging
+
 from anlagen_copilot.db import get_connection
+from anlagen_copilot.logging_setup import setup_logging
 from anlagen_copilot.settings import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 def _statements(dimensions: int) -> tuple[str, ...]:
@@ -44,10 +49,18 @@ def init_db() -> None:
     *nicht* an eine geänderte `embedding_dimensions` angepasst wird. Der
     Unterschied fällt dann erst beim HNSW-Index oder beim `INSERT` auf.
     """
+    dimensions = get_settings().embedding_dimensions
+    logger.info("Creating schema (embedding_dimensions=%d), idempotent", dimensions)
+
     with get_connection(register_types=False) as conn:
-        for statement in _statements(get_settings().embedding_dimensions):
+        for statement in _statements(dimensions):
             conn.execute(statement)
+            logger.debug("DDL executed: %s", statement.strip().splitlines()[0])
 
 
+# setup_logging() steht hier und nicht in init_db(): die Funktion wird auch aus
+# der db_schema-Fixture in tests/conftest.py aufgerufen, und ein Testlauf soll
+# sich seine Logging-Konfiguration nicht von einer Hilfsfunktion umstellen lassen.
 if __name__ == "__main__":
+    setup_logging()
     init_db()
