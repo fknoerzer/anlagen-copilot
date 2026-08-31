@@ -1,1 +1,1 @@
-"""Ausführbare Skripte für Wartungsaufgaben (z. B. Korpus-Download)."""
+"""Executable scripts for maintenance tasks, e.g. downloading the corpus."""

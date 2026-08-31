@@ -1,4 +1,4 @@
-"""Gemeinsame Fixtures für die Testsuite."""
+"""Shared fixtures for the test suite."""
 
 from collections.abc import Iterator
 
@@ -7,10 +7,10 @@ import pytest
 from anlagen_copilot.scripts.init_db import init_db
 from anlagen_copilot.settings import get_settings
 
-# Explizit gesetzt statt aus der lokalen .env gelesen: Pflichtfelder ohne Default
-# (openai_api_key, anthropic_api_key) würden die Tests sonst an eine vorhandene
-# .env koppeln und in CI oder einem frischen Klon mit ValidationError abbrechen.
-# Env-Variablen haben in pydantic-settings Vorrang vor der .env-Datei.
+# Set explicitly instead of read from the local .env: mandatory fields without
+# a default (openai_api_key, anthropic_api_key) would otherwise tie the tests to
+# an existing .env and fail with a ValidationError in CI or a fresh clone.
+# In pydantic-settings, environment variables take precedence over the .env.
 _TEST_ENV = {
     "OPENAI_API_KEY": "dummy",
     "ANTHROPIC_API_KEY": "dummy",
@@ -22,15 +22,15 @@ _TEST_ENV = {
 
 @pytest.fixture(scope="session", autouse=True)
 def _test_env() -> Iterator[None]:
-    """Setzt die Test-Env für die gesamte Session.
+    """Sets the test environment for the whole session.
 
-    `monkeypatch` ist function-scoped und in einer session-scoped Fixture nicht
-    verwendbar (ScopeMismatch), daher der explizite Kontextmanager.
+    `monkeypatch` is function-scoped and unusable inside a session-scoped
+    fixture (ScopeMismatch), hence the explicit context manager.
 
-    Der Cache wird auf beiden Seiten geleert: beim Aufbau, damit die gepatchten
-    Werte greifen, beim Abbau, damit kein Settings-Objekt mit Testwerten
-    zurückbleibt — die Env-Variablen nimmt der Kontextmanager zurück, das
-    gecachte Objekt nicht.
+    The cache is cleared on both sides: on setup so the patched values take
+    effect, on teardown so no Settings object with test values is left behind —
+    the context manager takes the environment variables back, the cached object
+    it does not.
     """
     with pytest.MonkeyPatch.context() as mp:
         for key, value in _TEST_ENV.items():
@@ -42,15 +42,15 @@ def _test_env() -> Iterator[None]:
 
 @pytest.fixture(scope="session")
 def db_schema(_test_env: None) -> None:
-    """Stellt sicher, dass Extension und Schema existieren, bevor ein Test verbindet.
+    """Makes sure extension and schema exist before any test connects.
 
-    Bewusst nicht `autouse`: `init_db()` braucht eine laufende Postgres-Instanz,
-    und die Tests ohne Datenbankbezug sollen ohne Docker durchlaufen.
+    Deliberately not `autouse`: `init_db()` needs a running Postgres instance,
+    and the tests without a database dependency should pass without Docker.
 
-    Nötig ist der Vorlauf, weil `get_connection()` per Default `register_vector()`
-    aufruft, das auf einer Datenbank ohne pgvector-Extension mit ProgrammingError
-    abbricht. pytest sammelt `test_db.py` alphabetisch vor `test_init_db.py` ein —
-    ohne diese Fixture stirbt die Suite auf einem frischen Volume also, bevor
-    irgendjemand das Schema angelegt hat.
+    The head start is needed because `get_connection()` calls
+    `register_vector()` by default, which aborts with a ProgrammingError against
+    a database without the pgvector extension. pytest collects `test_db.py`
+    alphabetically before `test_init_db.py` — without this fixture the suite
+    would therefore die on a fresh volume before anyone had created the schema.
     """
     init_db()

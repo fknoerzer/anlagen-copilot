@@ -1,6 +1,6 @@
 class DocumentError(Exception):
-    """Fehler, der genau ein Dokument betrifft — der Lauf kann weiterlaufen.
+    """An error confined to exactly one document — the run can carry on.
 
-    Abgrenzung zu allem anderen: Was hier nicht durchkommt, betrifft den
-    gesamten Lauf (fehlender API-Key, Datenbank weg) und soll ihn abbrechen.
+    The line against everything else: what does not come through here concerns
+    the whole run (missing API key, database gone) and should end it.
     """

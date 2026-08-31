@@ -1,11 +1,11 @@
-"""Tests für db.py: Verbindung zur Datenbank."""
+"""Tests for db.py: connecting to the database."""
 
 import pytest
 
 from anlagen_copilot.db import get_connection
 
-# Beide Tests verbinden mit dem Default `register_types=True` und brauchen
-# deshalb die pgvector-Extension. Env-Setup kommt aus conftest.py.
+# Both tests connect with the default `register_types=True` and therefore need
+# the pgvector extension. Env setup comes from conftest.py.
 pytestmark = pytest.mark.usefixtures("db_schema")
 
 

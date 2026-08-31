@@ -1,7 +1,8 @@
-"""Pydantic-Repräsentation von data/eval_set.yaml, dem RAG-Eval-Manifest.
+"""Pydantic representation of data/eval_set.yaml, the RAG eval manifest.
 
-Prüft Struktur und Konsistenz der Eval-Fragen, u. a. gegen corpus.yaml
-(load_corpus), damit document_id-Tippfehler nicht unbemerkt bleiben.
+Validates structure and consistency of the eval questions, among other things
+against corpus.yaml (load_corpus), so a mistyped document_id cannot slip
+through unnoticed.
 """
 
 import logging
@@ -20,6 +21,18 @@ DEFAULT_EVALSET_PATH = _PROJECT_ROOT / "data" / "eval_set.yaml"
 
 
 class ExpectedSource(BaseModel):
+    """One page a question must be answerable from — the retrieval ground truth.
+
+    `page` is a page number of the original PDF and therefore comparable to
+    `chunks.page` directly. That holds for excerpted documents too: ingestion
+    deliberately does not renumber an excerpt from 1, otherwise every value
+    here would point at the wrong manual page.
+
+    `EvalSet.check_document_id()` validates `document_id` against corpus.yaml;
+    `page` gets no such check, because this is the page an answer is expected
+    on, not a claim about what was indexed.
+    """
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     document_id: str
@@ -27,10 +40,10 @@ class ExpectedSource(BaseModel):
 
 
 class EvalQuestion(BaseModel):
-    """Eine Eval-Frage aus data/eval_set.yaml mit erwarteten Quellen/Fakten.
+    """One eval question from data/eval_set.yaml with its expected sources and facts.
 
-    Dient als Ground Truth zur Bewertung der RAG-Pipeline: expected_sources
-    für den Retrieval-Vergleich, expected_facts für den Antwort-Vergleich.
+    Ground truth for scoring the RAG pipeline: expected_sources for the
+    retrieval comparison, expected_facts for the answer comparison.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -44,14 +57,14 @@ class EvalQuestion(BaseModel):
 
     @model_validator(mode="after")
     def check_unanswerable_consistency(self) -> Self:
-        """Erzwingt: unanswerable-Fragen leer, alle anderen befüllt.
+        """Enforces: unanswerable questions empty, every other one filled.
 
-        Ohne diese Prüfung könnte eine unanswerable-Frage versehentlich
-        Quellen tragen (die dann nie erreichbar sind) oder eine
-        beantwortbare Frage ganz ohne Ground Truth bleiben.
+        Without this check an unanswerable question could carry sources by
+        accident (which are then never reachable), or an answerable one could
+        end up with no ground truth at all.
 
         Raises:
-            ValueError: bei inkonsistenter Kombination aus category und Inhalt.
+            ValueError: On an inconsistent combination of category and content.
         """
         is_unanswerable = self.category == "unanswerable"
         has_content = bool(self.expected_sources or self.expected_facts)
@@ -64,7 +77,7 @@ class EvalQuestion(BaseModel):
 
 
 class EvalSet(BaseModel):
-    """Das vollständige Eval-Set, mit Konsistenzprüfung gegen corpus.yaml."""
+    """The complete eval set, checked for consistency against corpus.yaml."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -72,14 +85,14 @@ class EvalSet(BaseModel):
 
     @model_validator(mode="after")
     def check_document_id(self) -> Self:
-        """Prüft, dass jede referenzierte document_id in corpus.yaml existiert.
+        """Checks that every referenced document_id exists in corpus.yaml.
 
-        Läuft einmal für das gesamte Set (nicht pro Frage), damit corpus.yaml
-        nicht mehrfach geladen wird. Fängt Tippfehler, die sonst erst beim
-        Retrieval-Vergleich unbemerkt ins Leere liefen.
+        Runs once for the whole set rather than per question, so corpus.yaml is
+        not loaded repeatedly. Catches the typos that would otherwise run into
+        the void unnoticed until the retrieval comparison.
 
         Raises:
-            ValueError: wenn eine document_id nicht im Korpus-Manifest vorkommt.
+            ValueError: When a document_id does not occur in the manifest.
         """
         corpus = load_corpus()
 
@@ -97,19 +110,19 @@ class EvalSet(BaseModel):
 
 
 def load_eval(path: Path = DEFAULT_EVALSET_PATH) -> EvalSet:
-    """Lädt und validiert das Eval-Set-Manifest.
+    """Loads and validates the eval set manifest.
 
     Args:
-        path: Pfad zur Manifest-Datei. Default ist data/eval_set.yaml,
-            aufgelöst relativ zum Projekt-Root (nicht zum Arbeitsverzeichnis).
+        path: Path to the manifest file. Defaults to data/eval_set.yaml,
+            resolved against the project root, not the working directory.
 
     Returns:
-        EvalSet: Das validierte Eval-Set.
+        EvalSet: The validated eval set.
 
     Raises:
-        FileNotFoundError: Wenn die Datei nicht existiert.
-        ValidationError: Wenn das Manifest strukturell fehlerhaft ist oder
-            gegen corpus.yaml inkonsistent ist (z. B. unbekannte document_id).
+        FileNotFoundError: When the file does not exist.
+        ValidationError: When the manifest is structurally invalid, or
+            inconsistent with corpus.yaml, e.g. an unknown document_id.
     """
     if not path.is_file():
         raise FileNotFoundError(f"Eval set manifest not found: {path}")

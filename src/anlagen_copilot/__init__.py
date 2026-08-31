@@ -1,6 +1,6 @@
-"""RAG-Copilot für Anlagen- und Maschinendokumentation.
+"""RAG copilot for industrial plant and machine documentation.
 
-Beantwortet Fragen zu Hersteller-Handbüchern mit Seitenbelegen und vergleicht
-dazu zwei Ingestion-Strategien (naive/advanced) auf demselben Korpus.
-Manifest: data/raw/corpus.yaml — Einstiegspunkt: anlagen_copilot.cli.main.
+Answers questions about manufacturer manuals with page-level citations, and
+compares two ingestion strategies (naive/advanced) over the same corpus.
+Manifest: data/raw/corpus.yaml — entry point: anlagen_copilot.cli.main.
 """

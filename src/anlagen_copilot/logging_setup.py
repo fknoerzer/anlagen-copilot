@@ -1,30 +1,29 @@
-"""Logging-Konfiguration für die Einstiegspunkte der Anwendung.
+"""Logging configuration for the application's entry points.
 
-Bewusst ein eigenes Modul statt einer Funktion in cli.py: `init_db.py` ist ein
-zweiter Einstiegspunkt, der dieselbe Konfiguration braucht, aber nicht die
-CLI-Abhängigkeiten (OpenAI-Client, Korpus-Manifest) mitziehen soll.
+Deliberately its own module rather than a function in cli.py: `init_db.py` is a
+second entry point that needs the same configuration without dragging in the
+CLI dependencies (OpenAI client, corpus manifest).
 """
 
 import logging
 
 from anlagen_copilot.settings import get_settings
 
-# httpx protokolliert jede Anfrage auf INFO, openai zusätzlich Header und
-# Payload-Größen auf DEBUG. Über ein 400-Seiten-Handbuch hinweg ersäuft das die
-# eigenen Meldungen, deshalb pauschal eine Stufe höher gehängt.
+# httpx logs every request at INFO, openai adds headers and payload sizes at
+# DEBUG. Across a 400-page manual that drowns out our own messages, so they are
+# all raised by one level.
 _NOISY_LIBRARIES = ("httpx", "httpcore", "openai")
 
 
 def setup_logging() -> None:
-    """Konfiguriert das Root-Logging für einen Einstiegspunkt.
+    """Configures root logging for one entry point.
 
-    Gehört ausschließlich in Einstiegspunkte, nie in Bibliotheksmodule: die
-    Konfiguration wirkt prozessweit, und ein bloßer Import soll sie niemandem
-    aufzwingen.
+    Belongs in entry points only, never in library modules: the configuration
+    takes effect process-wide, and a mere import should not force it on anyone.
 
-    Mehrfachaufrufe sind unschädlich, aber auch wirkungslos: `basicConfig`
-    kehrt sofort zurück, sobald am Root-Logger bereits ein Handler hängt.
-    Eine geänderte `log_level` greift dann also nicht mehr.
+    Repeated calls do no harm, but have no effect either: `basicConfig` returns
+    immediately once the root logger already has a handler attached. A changed
+    `log_level` therefore no longer takes hold.
     """
     logging.basicConfig(
         level=get_settings().log_level,

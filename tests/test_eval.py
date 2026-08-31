@@ -7,10 +7,10 @@ from anlagen_copilot.eval import EvalSet, load_eval
 
 
 def _make_eval_set() -> EvalSet:
-    """Baut ein minimal gültiges EvalSet, Pflichtfelder mit Platzhaltern.
+    """Builds a minimally valid EvalSet, mandatory fields as placeholders.
 
-    Tests, die nur ein einzelnes Feld prüfen, müssen so nicht bei jedem
-    Aufruf alle Pflichtfelder von EvalQuestion ausschreiben.
+    Tests that check a single field then do not have to spell out every
+    mandatory field of EvalQuestion on each call.
     """
     defaults: dict[str, object] = {
         "questions": [
@@ -53,10 +53,10 @@ questions:
 
 
 def test_real_eval_yaml_is_valid() -> None:
-    """Regressionscheck: data/eval_set.yaml bleibt gegen das Schema valide.
+    """Regression check: data/eval_set.yaml stays valid against the schema.
 
-    Bewusst ohne harte Fragenanzahl, da das Set wachsen soll — prüft nur
-    strukturelle Invarianten, die bei jeder Set-Größe gelten müssen.
+    Deliberately without a hard question count, since the set is meant to grow
+    — checks only structural invariants that must hold at any set size.
     """
     eval_set = load_eval()
 
@@ -75,7 +75,7 @@ def test_load_eval_rejects_broken_yaml(tmp_path: Path) -> None:
 
 def test_load_eval_rejects_missing_file(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
-        load_eval(tmp_path / "gibtsnicht.yaml")
+        load_eval(tmp_path / "does-not-exist.yaml")
 
 
 def test_load_eval_fails_with_missing_content(tmp_path: Path) -> None:
@@ -118,10 +118,9 @@ questions:
 
 
 def test_load_eval_fails_with_incorrect_unanswerable_question(tmp_path: Path) -> None:
-    """Nutzt bewusst eine echte document_id, um gezielt nur
-    check_unanswerable_consistency zu treffen, statt versehentlich
-    check_document_id auszulösen (siehe
-    test_load_eval_fails_with_incorrect_source_document_id für den anderen Fall).
+    """Uses a real document_id on purpose, to hit check_unanswerable_consistency
+    alone instead of tripping check_document_id by accident (see
+    test_load_eval_fails_with_incorrect_source_document_id for that other case).
     """
     f = tmp_path / "eval_set.yaml"
     f.write_text(
@@ -143,11 +142,11 @@ questions:
 
 
 def test_load_eval_fails_with_incorrect_source_document_id(tmp_path: Path) -> None:
-    """Läuft bewusst gegen das echte corpus.yaml statt gemockt.
+    """Runs against the real corpus.yaml on purpose, rather than a mock.
 
-    corpus.yaml ist eine statische, versionierte Datei (kein Netzwerk, kein
-    instabiler Zustand) — Mocking von load_corpus würde hier nur Komplexität
-    ohne echten Isolationsgewinn hinzufügen.
+    corpus.yaml is a static, version-controlled file — no network, no unstable
+    state. Mocking load_corpus here would only add complexity without buying
+    any real isolation.
     """
     f = tmp_path / "eval_set.yaml"
     f.write_text(

@@ -1,4 +1,4 @@
-"""Tests für anlagen_copilot.corpus: Laden/Validieren des Korpus-Manifests."""
+"""Tests for anlagen_copilot.corpus: loading/validating the corpus manifest."""
 
 from datetime import date
 from pathlib import Path
@@ -10,10 +10,10 @@ from anlagen_copilot.corpus import CorpusDocument, load_corpus
 
 
 def _make_document(**overrides: object) -> CorpusDocument:
-    """Baut ein minimal gültiges CorpusDocument, Pflichtfelder mit Platzhaltern.
+    """Builds a minimally valid CorpusDocument, mandatory fields as placeholders.
 
-    Tests, die nur ein einzelnes Feld prüfen (z. B. excerpt_pages), müssen so
-    nicht bei jedem Aufruf alle Pflichtfelder von CorpusDocument ausschreiben.
+    Tests that check a single field (excerpt_pages, say) then do not have to
+    spell out every mandatory field of CorpusDocument on each call.
     """
     defaults: dict[str, object] = {
         "id": "test-doc",
@@ -31,12 +31,12 @@ def _make_document(**overrides: object) -> CorpusDocument:
 
 
 def test_load_corpus_succeeds(tmp_path: Path) -> None:
-    """Nutzt bewusst handgeschriebenes YAML statt _make_document().
+    """Uses hand-written YAML on purpose rather than _make_document().
 
-    _make_document() liefert ein bereits validiertes CorpusDocument-Objekt,
-    kein YAML — dieser Test soll aber die Datei-/Parsing-Pipeline von
-    load_corpus() prüfen, möglichst nah an dem, was tatsächlich von Hand in
-    corpus.yaml steht (inkl. YAML-typischer Stolperfallen wie Einrückung).
+    _make_document() returns an already validated CorpusDocument object, not
+    YAML — but this test is about the file and parsing pipeline of
+    load_corpus(), as close as possible to what is actually written by hand in
+    corpus.yaml, including YAML pitfalls such as indentation.
     """
     f = tmp_path / "corpus.yaml"
     f.write_text(
@@ -68,10 +68,10 @@ cross_references: []
 
 
 def test_real_corpus_yaml_is_valid() -> None:
-    """Regressionscheck: data/raw/corpus.yaml bleibt gegen das Schema valide.
+    """Regression check: data/raw/corpus.yaml stays valid against the schema.
 
-    Bewusst ohne harte Dokumentanzahl, da der Korpus wachsen soll — prüft
-    nur strukturelle Invarianten, die bei jeder Korpusgröße gelten müssen.
+    Deliberately without a hard document count, since the corpus is meant to
+    grow — checks only structural invariants that must hold at any corpus size.
     """
     corpus = load_corpus()
 
@@ -82,7 +82,7 @@ def test_real_corpus_yaml_is_valid() -> None:
 
 def test_load_corpus_rejects_broken_yaml(tmp_path: Path) -> None:
     f = tmp_path / "corpus.yaml"
-    f.write_text("documents: [{id: a\n", encoding="utf-8")  # unbalancierte Klammer
+    f.write_text("documents: [{id: a\n", encoding="utf-8")  # unbalanced bracket
 
     with pytest.raises(yaml.YAMLError):
         load_corpus(f)
@@ -90,7 +90,7 @@ def test_load_corpus_rejects_broken_yaml(tmp_path: Path) -> None:
 
 def test_load_corpus_rejects_missing_file(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
-        load_corpus(tmp_path / "gibtsnicht.yaml")
+        load_corpus(tmp_path / "does-not-exist.yaml")
 
 
 def test_excerpt_pages_none_is_allowed() -> None:

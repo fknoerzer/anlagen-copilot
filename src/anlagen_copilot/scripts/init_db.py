@@ -8,16 +8,16 @@ logger = logging.getLogger(__name__)
 
 
 def _statements(dimensions: int) -> tuple[str, ...]:
-    """Baut die DDL-Statements für die angegebene Embedding-Dimension.
+    """Builds the DDL statements for the given embedding dimension.
 
-    Bewusst eine Funktion statt einer Modulkonstante: `dimensions` kommt aus den
-    Settings, und die sollen erst bei Benutzung gebaut werden, nicht beim Import
-    dieses Moduls.
+    Deliberately a function rather than a module constant: `dimensions` comes
+    from the settings, and those are meant to be built on use, not when this
+    module is imported.
 
-    `dimensions` wird in den String interpoliert statt als Query-Parameter
-    übergeben — ein Typ-Modifier wie `VECTOR(n)` ist in DDL nicht
-    parametrisierbar. Unbedenklich, weil Pydantic den Wert bereits als `int`
-    validiert hat.
+    `dimensions` is interpolated into the string instead of passed as a query
+    parameter — a type modifier such as `VECTOR(n)` cannot be parameterised in
+    DDL. Harmless, because pydantic has already validated the value as an
+    `int`.
     """
     return (
         "CREATE EXTENSION IF NOT EXISTS vector;",
@@ -40,14 +40,14 @@ def _statements(dimensions: int) -> tuple[str, ...]:
 
 
 def init_db() -> None:
-    """Aktiviert die pgvector-Extension und legt die chunks-Tabelle an.
+    """Enables the pgvector extension and creates the chunks table.
 
-    Idempotent (IF NOT EXISTS überall) — gefahrlos mehrfach ausführbar,
-    z. B. nach einem frischen `docker compose up -d`.
+    Idempotent (IF NOT EXISTS throughout) — safe to run repeatedly, e.g. after
+    a fresh `docker compose up -d`.
 
-    Achtung: `IF NOT EXISTS` heißt auch, dass eine bereits vorhandene Tabelle
-    *nicht* an eine geänderte `embedding_dimensions` angepasst wird. Der
-    Unterschied fällt dann erst beim HNSW-Index oder beim `INSERT` auf.
+    Careful: `IF NOT EXISTS` also means an existing table is *not* adjusted to
+    a changed `embedding_dimensions`. The difference then only surfaces at the
+    HNSW index or at the `INSERT`.
     """
     dimensions = get_settings().embedding_dimensions
     logger.info("Creating schema (embedding_dimensions=%d), idempotent", dimensions)
@@ -58,9 +58,9 @@ def init_db() -> None:
             logger.debug("DDL executed: %s", statement.strip().splitlines()[0])
 
 
-# setup_logging() steht hier und nicht in init_db(): die Funktion wird auch aus
-# der db_schema-Fixture in tests/conftest.py aufgerufen, und ein Testlauf soll
-# sich seine Logging-Konfiguration nicht von einer Hilfsfunktion umstellen lassen.
+# setup_logging() sits here rather than in init_db(): that function is also
+# called from the db_schema fixture in tests/conftest.py, and a test run should
+# not have its logging configuration changed for it by a helper.
 if __name__ == "__main__":
     setup_logging()
     init_db()

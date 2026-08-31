@@ -41,7 +41,7 @@ def _make_document(**overrides: object) -> CorpusDocument:
 
 
 def _fake_response(status_code: int, content: bytes = b"") -> httpx.Response:
-    """Echtes httpx.Response statt Fake-Klasse, damit raise_for_status() echtes Verhalten zeigt."""
+    """A real httpx.Response instead of a fake, so raise_for_status() really behaves."""
     request = httpx.Request("GET", "https://example.com/test-doc.pdf")
     return httpx.Response(status_code, content=content, request=request)
 
@@ -50,7 +50,7 @@ def test_check_pages_accepts_matching_count(tmp_path: Path) -> None:
     pdf_path = tmp_path / "doc.pdf"
     _make_pdf(pdf_path, pages=3)
 
-    check_pages(3, pdf_path, label=pdf_path.name)  # darf nicht werfen
+    check_pages(3, pdf_path, label=pdf_path.name)  # must not raise
 
 
 def test_check_pages_rejects_mismatch(tmp_path: Path) -> None:
@@ -65,16 +65,16 @@ def test_download_document_skips_existing_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     doc = _make_document(filename="existing.pdf")
-    (tmp_path / "existing.pdf").write_bytes(b"bereits vorhanden")
+    (tmp_path / "existing.pdf").write_bytes(b"already present")
 
     def fail_if_called(*args: object, **kwargs: object) -> httpx.Response:
-        raise AssertionError("httpx.get haette nicht aufgerufen werden duerfen")
+        raise AssertionError("httpx.get should not have been called")
 
     monkeypatch.setattr(httpx, "get", fail_if_called)
 
     download_document(doc, tmp_path)
 
-    assert (tmp_path / "existing.pdf").read_bytes() == b"bereits vorhanden"
+    assert (tmp_path / "existing.pdf").read_bytes() == b"already present"
 
 
 def test_download_document_writes_file_on_success(

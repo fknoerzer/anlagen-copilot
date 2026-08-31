@@ -13,20 +13,19 @@ logger = logging.getLogger(__name__)
 
 
 def download_document(doc: CorpusDocument, raw_dir: Path) -> None:
-    """Lädt doc.url herunter und speichert es unter raw_dir/doc.filename.
+    """Downloads doc.url and stores it as raw_dir/doc.filename.
 
-    Existiert die Zieldatei bereits, wird der Download übersprungen (kein
-    erneuter Download bei jedem Lauf). Die Seitenzahl wird vor dem Schreiben
-    geprüft, damit bei einem Mismatch keine fehlerhafte Datei auf der Platte
-    landet (die ein künftiger Lauf sonst über den Existenz-Check stillschweigend
-    übernehmen würde).
+    If the target file already exists the download is skipped, so a rerun does
+    not fetch everything again. The page count is checked before writing, so a
+    mismatch never leaves a wrong file on disk — a later run would otherwise
+    adopt it silently through that same existence check.
 
     Raises:
-        DocumentError: Bei 4xx/5xx-Antworten des Servers, oder wenn die
-            heruntergeladene PDF nicht die im Manifest angegebene Seitenzahl
-            hat (siehe check_pages). Beides betrifft genau dieses Dokument.
-            Netzfehler (Timeout, kein DNS) fliegen dagegen als httpx-Exception
-            durch — sie betreffen jeden weiteren Download ebenso.
+        DocumentError: On 4xx/5xx responses from the server, or when the
+            downloaded PDF does not have the page count the manifest declares
+            (see check_pages). Both concern exactly this document. Network
+            errors (timeout, no DNS) propagate as httpx exceptions instead —
+            they affect every further download just the same.
     """
     target = raw_dir / doc.filename
 
@@ -47,16 +46,15 @@ def download_document(doc: CorpusDocument, raw_dir: Path) -> None:
 
 
 def check_pages(number_pages: int, source: Path | BinaryIO, *, label: str) -> None:
-    """Prüft die Seitenzahl einer PDF gegen das Manifest.
+    """Checks a PDF's page count against the manifest.
 
-    Fängt Fälle ab, in denen sich eine Herstellerausgabe geändert hat, ohne
-    dass corpus.yaml aktualisiert wurde — sonst würden falsche Seitenzahlen
-    unbemerkt in Quellenangaben landen. source kann sowohl ein Pfad zu einer
-    bereits gespeicherten Datei als auch ein In-Memory-Stream (z. B. direkt
-    aus einer Response) sein.
+    Catches the cases where a manufacturer edition changed without corpus.yaml
+    being updated — wrong page numbers would otherwise end up in citations
+    unnoticed. source may be a path to an already stored file just as well as
+    an in-memory stream, e.g. straight from a response.
 
     Raises:
-        DocumentError: Wenn die tatsächliche Seitenzahl von number_pages abweicht.
+        DocumentError: When the actual page count differs from number_pages.
     """
     reader = PdfReader(source)
     actual_pages = len(reader.pages)

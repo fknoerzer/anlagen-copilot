@@ -1,7 +1,7 @@
-"""Pydantic-Repräsentation von data/raw/corpus.yaml, dem Korpus-Manifest.
+"""Pydantic representation of data/raw/corpus.yaml, the corpus manifest.
 
-Single Source of Truth für Ingestion, Retrieval-Filter, Quellenangaben
-und Provenance-Nachweis — siehe corpus.yaml selbst für den Zweck.
+Single source of truth for ingestion, retrieval filters, citations and
+provenance — see corpus.yaml itself for the rationale.
 """
 
 import logging
@@ -27,6 +27,13 @@ DEFAULT_CORPUS_PATH = _PROJECT_ROOT / "data" / "raw" / "corpus.yaml"
 
 
 class CorpusMeta(BaseModel):
+    """The `corpus:` header of data/raw/corpus.yaml — the collection itself.
+
+    Describes the collection, not any single document. `raw_dir` is the only
+    field with behaviour attached: the validator below resolves it against the
+    project root, so callers can rely on getting an absolute path.
+    """
+
     name: str
     language: str
     description: str
@@ -35,22 +42,21 @@ class CorpusMeta(BaseModel):
     @field_validator("raw_dir")
     @classmethod
     def resolve_raw_dir(cls, p: Path) -> Path:
-        """Löst raw_dir gegen den Projekt-Root auf, falls relativ angegeben.
+        """Resolves raw_dir against the project root when given as relative.
 
-        Ohne das wäre raw_dir vom aktuellen Arbeitsverzeichnis beim Aufruf
-        abhängig statt von der Position des Manifests selbst — würde main()
-        aus einem anderen Verzeichnis laufen, würde in einen falschen Ort
-        geschrieben oder gelesen.
+        Without this, raw_dir would depend on the working directory at call
+        time instead of on where the manifest itself sits — running main() from
+        another directory would read from and write to the wrong place.
         """
         return p if p.is_absolute() else (_PROJECT_ROOT / p).resolve()
 
 
 class CorpusDocument(BaseModel):
-    """Ein Dokument des Referenzkorpus, wie in data/raw/corpus.yaml deklariert.
+    """One document of the reference corpus, as declared in data/raw/corpus.yaml.
 
-    Dient als Single Source of Truth für Ingestion (Metadaten pro Chunk),
-    Retrieval-Filter (doc_type, domain), Quellenangaben (title) und
-    Provenance-Nachweis (url, edition, retrieved).
+    Single source of truth for ingestion (per-chunk metadata), retrieval
+    filters (doc_type, domain), citations (title) and provenance (url, edition,
+    retrieved).
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -68,7 +74,7 @@ class CorpusDocument(BaseModel):
     ]
     domain: Literal["mechanik", "elektronik"]
     pages: PositiveInt = Field(
-        description="Gesamtseitenzahl des Original-PDFs (nicht die indexierte Teilmenge)"
+        description="Total page count of the original PDF, not the indexed subset"
     )
     url: HttpUrl
     retrieved: date
@@ -77,22 +83,22 @@ class CorpusDocument(BaseModel):
     excerpt_pages: tuple[int, int] | None = Field(
         default=None,
         description=(
-            "Nur dieser Seitenbereich wird indexiert, beide Grenzen einschließend "
-            "(453, 548) = 96 Seiten. None = ganzes Dokument. Zählung ist die des "
-            "Original-PDFs und bleibt es auch in chunks.page."
+            "Only this page range is indexed, both bounds inclusive: "
+            "(453, 548) = 96 pages. None = the whole document. Numbering is "
+            "that of the original PDF and stays so in chunks.page."
         ),
     )
     notes: str | None = None
 
     @model_validator(mode="after")
     def check_excerpt_pages(self) -> Self:
-        """Prüft einen Seitenauszug gegen den Gesamtumfang des Dokuments.
+        """Checks a page excerpt against the document's total extent.
 
-        Läuft nur, wenn `excerpt_pages` gesetzt ist. Ein fehlerhafter Bereich
-        würde sonst zu falschen Quellenangaben führen.
+        Only runs when `excerpt_pages` is set. A faulty range would otherwise
+        lead to wrong citations.
 
         Raises:
-            ValueError: Wenn Start < 1, Start >= Ende oder Ende > `pages`.
+            ValueError: When start < 1, start >= end, or end > `pages`.
         """
         excerpt = self.excerpt_pages
         if excerpt is None:
@@ -109,29 +115,44 @@ class CorpusDocument(BaseModel):
 
 
 class CrossReference(BaseModel):
+    """A question shape that no single document can answer on its own.
+
+    Records the corpus's deliberate overlaps — picking an oil needs the gearbox
+    manual *and* the lubricant table, a fault code needs the parameter list
+    *and* the motor manual. Documentation of intent only: no code reads this
+    field, it justifies the multi-hop questions in the eval set.
+    """
+
     question_pattern: str
     documents: list[str]
 
 
 class Corpus(BaseModel):
+    """The whole manifest — root model that `load_corpus()` validates against.
+
+    The `corpus.corpus.raw_dir` nesting is intentional: the YAML separates
+    header data (`corpus:`) from the document list, and this model mirrors the
+    file rather than flattening it on load.
+    """
+
     corpus: CorpusMeta
     documents: list[CorpusDocument]
     cross_references: list[CrossReference]
 
 
 def load_corpus(path: Path = DEFAULT_CORPUS_PATH) -> Corpus:
-    """Lädt und validiert das Korpus-Manifest.
+    """Loads and validates the corpus manifest.
 
     Args:
-        path: Pfad zur Manifest-Datei. Default ist data/raw/corpus.yaml,
-            aufgelöst relativ zum Projekt-Root (nicht zum Arbeitsverzeichnis).
+        path: Path to the manifest file. Defaults to data/raw/corpus.yaml,
+            resolved against the project root, not the working directory.
 
     Returns:
-        Corpus: Das validierte Manifest.
+        Corpus: The validated manifest.
 
     Raises:
-        FileNotFoundError: Wenn die Datei nicht existiert.
-        ValidationError: Wenn das Manifest strukturell fehlerhaft ist.
+        FileNotFoundError: When the file does not exist.
+        ValidationError: When the manifest is structurally invalid.
     """
     if not path.is_file():
         raise FileNotFoundError(f"Corpus manifest not found: {path}")
