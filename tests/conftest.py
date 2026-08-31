@@ -16,7 +16,15 @@ _TEST_ENV = {
     "ANTHROPIC_API_KEY": "dummy",
     "AZURE_OPENAI_ENDPOINT": "https://example.com",
     "AZURE_OPENAI_API_KEY": "dummy",
-    "POSTGRES_DSN": "postgresql://anlagen_copilot:anlagen_copilot@localhost:5432/anlagen_copilot",
+    # connect_timeout is what keeps a missing Postgres from turning into a hang.
+    # libpq waits indefinitely by default, so without it the wait is bounded only
+    # by the OS TCP stack: measured 260s against a dead port, and `localhost`
+    # resolves to both ::1 and 127.0.0.1, which psycopg tries in turn — so every
+    # value here costs twice. Five seconds makes that 10s and a readable error.
+    "POSTGRES_DSN": (
+        "postgresql://anlagen_copilot:anlagen_copilot"
+        "@localhost:5432/anlagen_copilot?connect_timeout=5"
+    ),
 }
 
 
