@@ -1,7 +1,6 @@
 import logging
 from pathlib import Path
 
-import tiktoken
 from openai import BadRequestError, OpenAI
 from psycopg import Connection
 from pypdf import PasswordType, PdfReader
@@ -19,8 +18,6 @@ logger = logging.getLogger(__name__)
 # excerpt. The warning therefore only fires once a new manual of that size
 # arrives unfiltered — today it stays silent.
 _EXCERPT_HINT_PAGES = 500
-
-_ENCODING = tiktoken.get_encoding("cl100k_base")
 
 
 def extract_pages(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, str]]:
@@ -174,13 +171,13 @@ def ingest_document(
 
     logger.info("%s: starting to embed %d pages", document.id, len(usable))
 
-    rejected: list[tuple[int, int]] = []  # (page, tokens)
+    rejected: list[int] = []
 
     for page_number, text in usable:
         try:
             vector = embed(client, text)
         except BadRequestError:
-            rejected.append((page_number, len(_ENCODING.encode(text))))
+            rejected.append(page_number)
             continue
 
         conn.execute(
