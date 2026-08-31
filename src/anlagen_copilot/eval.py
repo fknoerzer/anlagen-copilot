@@ -13,11 +13,11 @@ import yaml
 from pydantic import BaseModel, ConfigDict, PositiveInt, model_validator
 
 from anlagen_copilot.corpus import load_corpus
+from anlagen_copilot.paths import DATA_DIR
 
 logger = logging.getLogger(__name__)
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DEFAULT_EVALSET_PATH = _PROJECT_ROOT / "data" / "eval_set.yaml"
+DEFAULT_EVALSET_PATH = DATA_DIR / "eval_set.yaml"
 
 
 class ExpectedSource(BaseModel):

@@ -20,10 +20,11 @@ from pydantic import (
     model_validator,
 )
 
+from anlagen_copilot.paths import DATA_DIR, PROJECT_ROOT
+
 logger = logging.getLogger(__name__)
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DEFAULT_CORPUS_PATH = _PROJECT_ROOT / "data" / "raw" / "corpus.yaml"
+DEFAULT_CORPUS_PATH = DATA_DIR / "raw" / "corpus.yaml"
 
 
 class CorpusMeta(BaseModel):
@@ -48,7 +49,7 @@ class CorpusMeta(BaseModel):
         time instead of on where the manifest itself sits — running main() from
         another directory would read from and write to the wrong place.
         """
-        return p if p.is_absolute() else (_PROJECT_ROOT / p).resolve()
+        return p if p.is_absolute() else (PROJECT_ROOT / p).resolve()
 
 
 class CorpusDocument(BaseModel):

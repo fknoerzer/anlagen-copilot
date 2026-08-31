@@ -4,6 +4,8 @@ from typing import Literal
 from pydantic import AnyHttpUrl, Field, PostgresDsn, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from anlagen_copilot.paths import PROJECT_ROOT
+
 
 class Settings(BaseSettings):
     """Runtime configuration, read from environment variables and `.env`.
@@ -17,7 +19,7 @@ class Settings(BaseSettings):
     reading the real value takes an explicit `.get_secret_value()`.
     """
 
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(env_file=PROJECT_ROOT / ".env")
 
     # Embeddings: OpenAI directly, for both ingestion strategies
     openai_api_key: SecretStr
