@@ -6,6 +6,7 @@ from typing import BinaryIO
 
 import httpx
 from pypdf import PdfReader
+from pypdf.errors import DependencyError, PdfReadError
 
 from anlagen_copilot.corpus import CorpusDocument
 from anlagen_copilot.errors import DocumentError
@@ -28,9 +29,9 @@ def download_document(doc: CorpusDocument, raw_dir: Path) -> None:
     """Downloads doc.url and stores it as raw_dir/doc.filename.
 
     If the target file already exists the download is skipped, so a rerun does
-    not fetch everything again. The page count is checked before writing, so a
-    mismatch never leaves a wrong file on disk — a later run would otherwise
-    adopt it silently through that same existence check.
+    not fetch everything again. The response is validated before writing, so a
+    wrong file never reaches the disk — a later run would otherwise adopt it
+    silently through that same existence check.
 
     Redirects are followed, so the bytes may well come from a host other than
     the one in the manifest. `doc.url` stays the provenance record either way:
@@ -39,13 +40,14 @@ def download_document(doc: CorpusDocument, raw_dir: Path) -> None:
 
     Raises:
         DocumentError: On 4xx/5xx responses from the server, on a redirect
-            loop, and when the downloaded PDF does not have the page count the
-            manifest declares (see check_pages). All three concern exactly this
-            document. Network errors (timeout, no DNS) propagate as httpx
-            exceptions instead — they affect every further download just the
-            same. The line is drawn by reach, not by exception family:
-            TooManyRedirects and ConnectError are both httpx RequestErrors, yet
-            only the first is a property of this one URL.
+            loop, and when the response is not the PDF the manifest describes —
+            unreadable content or the wrong page count, see check_pages. All
+            three concern exactly this document. Network errors (timeout, no
+            DNS) propagate as httpx exceptions instead — they affect every
+            further download just the same. The line is drawn by reach, not
+            by exception family: TooManyRedirects and ConnectError are both
+            httpx RequestErrors, yet only the first is a property of this one
+            URL.
     """
     target = raw_dir / doc.filename
 
@@ -83,12 +85,13 @@ def download_document(doc: CorpusDocument, raw_dir: Path) -> None:
         raise DocumentError(f"{doc.filename}: server responded {response.status_code}") from exc
 
     check_pages(doc.pages, io.BytesIO(response.content), label=doc.filename)
+
     target.write_bytes(response.content)
     logger.info("%s: saved %.1f MB", doc.filename, len(response.content) / 1_048_576)
 
 
 def check_pages(number_pages: int, source: Path | BinaryIO, *, label: str) -> None:
-    """Checks a PDF's page count against the manifest.
+    """Checks that the source is a readable PDF with the page count declared.
 
     Catches the cases where a manufacturer edition changed without corpus.yaml
     being updated — wrong page numbers would otherwise end up in citations
@@ -96,10 +99,21 @@ def check_pages(number_pages: int, source: Path | BinaryIO, *, label: str) -> No
     an in-memory stream, e.g. straight from a response.
 
     Raises:
-        DocumentError: When the actual page count differs from number_pages.
+        DocumentError: When the source is not a readable PDF, or when its page
+            count differs from number_pages. The first case is less exotic than
+            it sounds: a portal that answers a download link with an HTML
+            challenge page does so at status 200, so raise_for_status() sees
+            nothing wrong and it surfaces only here.
+            DependencyError is caught alongside PdfReadError — pypdf does not
+            derive one from the other — so that a missing crypto extra skips
+            the encrypted documents rather than ending the run, matching what
+            extract_pages() does with the same pair.
     """
-    reader = PdfReader(source)
-    actual_pages = len(reader.pages)
+    try:
+        reader = PdfReader(source)
+        actual_pages = len(reader.pages)
+    except (DependencyError, PdfReadError) as exc:
+        raise DocumentError(f"{label}: no readable PDF") from exc
 
     if actual_pages != number_pages:
         raise DocumentError(

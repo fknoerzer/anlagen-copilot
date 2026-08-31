@@ -10,6 +10,10 @@ from anlagen_copilot.corpus import CorpusDocument
 from anlagen_copilot.errors import DocumentError
 from anlagen_copilot.scripts.download_corpus import check_pages, download_document
 
+# What a download portal serves instead of the file when it wants a browser:
+# HTML, at status 200. raise_for_status() has nothing to complain about.
+_CHALLENGE_PAGE = b"<!DOCTYPE html><html><body>Please enable JavaScript</body></html>"
+
 
 def _make_pdf_bytes(pages: int) -> bytes:
     writer = PdfWriter()
@@ -117,6 +121,27 @@ def test_download_document_raises_on_page_mismatch_and_leaves_no_file(
         download_document(doc, tmp_path)
 
     assert not (tmp_path / "wrong-pages.pdf").is_file()
+
+
+def test_check_pages_rejects_content_that_is_not_a_pdf(tmp_path: Path) -> None:
+    not_a_pdf = tmp_path / "challenge.pdf"
+    not_a_pdf.write_bytes(_CHALLENGE_PAGE)
+
+    with pytest.raises(DocumentError, match="no readable PDF"):
+        check_pages(2, not_a_pdf, label=not_a_pdf.name)
+
+
+def test_download_document_rejects_challenge_page_served_at_200(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    doc = _make_document(filename="challenge.pdf")
+
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(200, _CHALLENGE_PAGE))
+
+    with pytest.raises(DocumentError, match="no readable PDF"):
+        download_document(doc, tmp_path)
+
+    assert not (tmp_path / "challenge.pdf").is_file()
 
 
 def test_download_document_raises_on_redirect_loop(
