@@ -12,31 +12,31 @@ from anlagen_copilot.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
-# Ab dieser Größe lohnt ein Auszug. Bewusst über den 428 Seiten von
-# siemens-g120c-kurz angesetzt, das absichtlich vollständig indexiert wird:
-# Das einzige Dokument im Korpus darüber (siemens-g120c-liste, 572) hat einen
-# Auszug. Die Warnung schlägt also erst an, wenn ein neues Handbuch dieser
-# Größenordnung ungefiltert dazukommt — heute schweigt sie.
+# Above this size an excerpt is worth having. Deliberately set above the 428
+# pages of siemens-g120c-kurz, which is indexed in full on purpose: the only
+# document in the corpus larger than that (siemens-g120c-liste, 572) has an
+# excerpt. The warning therefore only fires once a new manual of that size
+# arrives unfiltered — today it stays silent.
 _EXCERPT_HINT_PAGES = 500
 
 
 def extract_pages(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, str]]:
-    """Liest ein PDF Seite für Seite aus, gibt (Seitenzahl, Text) je Seite zurück.
+    """Reads a PDF page by page, returning (page number, text) for each page.
 
-    Ist `excerpt_pages` gesetzt, wird nur dieser Bereich gelesen — beide Grenzen
-    einschließend. Die Seitenzahlen bleiben dabei die des Original-PDFs und
-    zählen *nicht* ab 1 neu: `chunks.page` ist die Quellenangabe, gegen die auch
-    das Eval-Set prüft. Eine Neunummerierung würde jeden Verweis still um den
-    Startoffset verschieben und Leser auf die falsche Handbuchseite schicken.
+    When `excerpt_pages` is set only that range is read, both bounds inclusive.
+    Page numbers stay those of the original PDF and are *not* renumbered from
+    1: `chunks.page` is the citation the eval set checks against as well.
+    Renumbering would shift every reference silently by the start offset and
+    send readers to the wrong manual page.
 
-    Der Schnitt passiert vor dem Auslesen, weil `PdfReader.pages` lazy ist —
-    `extract_text()` läuft so nur auf den tatsächlich benötigten Seiten.
+    The slice happens before extraction because `PdfReader.pages` is lazy —
+    `extract_text()` then only runs on the pages actually needed.
 
     Raises:
-        DocumentError: Wenn die Datei nicht lesbar ist oder sich nicht mit
-            leerem Passwort öffnen lässt. Der pypdf-Zweig umschließt bewusst
-            auch die Ausleseschleife: `extract_text()` kann bei einer einzelnen
-            beschädigten Seite ebenfalls scheitern, nicht nur `PdfReader()`.
+        DocumentError: When the file is unreadable, or will not open with an
+            empty password. The pypdf branch deliberately wraps the extraction
+            loop too: `extract_text()` can fail on a single damaged page, not
+            just `PdfReader()`.
     """
 
     path: Path = raw_dir / document.filename
@@ -50,8 +50,9 @@ def extract_pages(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, st
             if result == PasswordType.NOT_DECRYPTED:
                 raise DocumentError(f"{document.id}: decryption with empty password failed")
 
-        # Ohne Auszug die tatsächliche Seitenzahl der Datei, nicht document.pages:
-        # weicht das Manifest ab, soll das hier nichts stillschweigend abschneiden.
+        # Without an excerpt, the file's actual page count rather than
+        # document.pages: where the manifest disagrees, nothing here should
+        # truncate silently.
         first_page, last_page = document.excerpt_pages or (1, len(reader.pages))
 
         logger.debug(
@@ -79,23 +80,49 @@ def extract_pages(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, st
 
 
 def embed(client: OpenAI, text: str) -> list[float]:
-    """Bettet einen Text ein und gibt den Vektor zurück.
+    """Embeds one text and returns the vector.
+
+    Catches nothing on purpose. How far a failure reaches is something only the
+    caller can know: here a text is a text, and whether losing it is bearable
+    is decided by the loop above.
 
     Raises:
-        DocumentError: Wenn das Modell den Text ablehnt — praktisch immer die
-            Token-Grenze bei einer dichten Tabellenseite. Andere OpenAI-Fehler
-            (Authentifizierung, Rate-Limit, Verbindung) fliegen durch: sie
-            träfen jeden weiteren Aufruf genauso und sollen den Lauf beenden.
+        BadRequestError: When the model rejects the input — practically always
+            the token limit on a dense table page. Concerns exactly this text,
+            which is why the caller decides what it means: `ingest_document()`
+            skips the page, `check_embedding_config()` has no page to skip and
+            lets the run end.
+        OpenAIError: Every other case (authentication, rate limit, connection).
+            Those would hit every further call just the same and should end the
+            run — which is why nobody catches them further up either.
     """
-    try:
-        response = client.embeddings.create(
-            model=get_settings().embedding_model,
-            input=text,
-            dimensions=get_settings().embedding_dimensions,
-        )
-    except BadRequestError as exc:
-        raise DocumentError(f"page rejected by embedding model ({len(text)} characters)") from exc
+    response = client.embeddings.create(
+        model=get_settings().embedding_model,
+        input=text,
+        dimensions=get_settings().embedding_dimensions,
+    )
     return response.data[0].embedding
+
+
+def check_embedding_config(client: OpenAI) -> None:
+    """Verifies model, dimensions and API key with a single embedding call.
+
+    Runs once before the ingestion loop, so a misconfiguration ends the run in a
+    second instead of having to be inferred from a pattern of rejected pages.
+    Deliberately goes through `embed()` rather than calling the API itself:
+    whatever the ingestion sends later, the preflight has sent already, and the
+    two cannot drift apart.
+
+    Catches nothing. Every failure here concerns the whole run — a dimension the
+    model will not take, an unknown model, a bad key — and none of them would
+    look any different on the next document, so they are left to end it.
+    """
+    embed(client, "preflight")
+    logger.info(
+        "Embedding config verified: model '%s', %d dimensions",
+        get_settings().embedding_model,
+        get_settings().embedding_dimensions,
+    )
 
 
 def ingest_document(
@@ -104,6 +131,33 @@ def ingest_document(
     conn: Connection,
     raw_dir: Path,
 ) -> None:
+    """Embeds one document page by page and writes the chunks to the database.
+
+    One page is one chunk. That is a deliberate baseline for the naive
+    strategy, not an oversight: the page is the unit the eval set cites and the
+    unit an answer can send a reader to. Splitting along semantic boundaries is
+    the job of the advanced strategy, and the `UNIQUE (strategy, document_id,
+    page)` constraint would have to give way with it.
+
+    Two kinds of page never reach the index, each counted in a warning instead
+    of ending the document: pages without extractable text (scans, pure
+    graphics) and pages the embedding model rejects — practically always the
+    token limit on a dense table page.
+
+    A rejection may be read as a statement about that one page because
+    `check_embedding_config()` has already ruled out the alternative: a 400 that
+    covers every page alike — a dimension the model will not take, an unknown
+    model — has ended the run before the first page was ever read.
+
+    Writes but does not commit. The caller owns the transaction, so a document
+    that fails midway leaves no half-written index behind, and `ON CONFLICT DO
+    NOTHING` makes a rerun a no-op rather than a source of duplicates.
+
+    Raises:
+        DocumentError: From `extract_pages()`, when the PDF is unreadable or
+            will not open with an empty password. A rejected page is skipped;
+            everything else propagates unwrapped and ends the run.
+    """
     pages = extract_pages(document, raw_dir)
     usable = [(page_number, text) for page_number, text in pages if text.strip()]
     skipped = len(pages) - len(usable)
@@ -115,10 +169,17 @@ def ingest_document(
             len(pages),
         )
 
-    logger.info("%s: embedding %d pages", document.id, len(usable))
+    logger.info("%s: starting to embed %d pages", document.id, len(usable))
+
+    rejected: list[int] = []
 
     for page_number, text in usable:
-        vector = embed(client, text)
+        try:
+            vector = embed(client, text)
+        except BadRequestError:
+            rejected.append(page_number)
+            continue
+
         conn.execute(
             """
             INSERT INTO chunks (strategy, document_id, page, content, embedding)
@@ -128,3 +189,19 @@ def ingest_document(
             (get_settings().ingest_strategy, document.id, page_number, text, vector),
         )
         logger.debug("%s: embedded page %d (%d characters)", document.id, page_number, len(text))
+
+    if rejected:
+        logger.warning(
+            "%s: %d of %d pages rejected by embedding model: %s",
+            document.id,
+            len(rejected),
+            len(usable),
+            rejected,
+        )
+
+    logger.info(
+        "%s: embedded %d of %d pages",
+        document.id,
+        len(usable) - len(rejected),
+        len(pages),
+    )
