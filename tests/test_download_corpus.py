@@ -160,6 +160,56 @@ def test_download_document_raises_on_redirect_loop(
     assert not (tmp_path / "looping.pdf").is_file()
 
 
+def test_download_document_leaves_no_partial_file_behind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    doc = _make_document(filename="new.pdf", pages=2)
+
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(200, _make_pdf_bytes(2)))
+
+    download_document(doc, tmp_path)
+
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["new.pdf"]
+
+
+def test_download_document_writes_no_target_file_when_the_write_is_cut_short(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    doc = _make_document(filename="new.pdf", pages=2)
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(200, _make_pdf_bytes(2)))
+
+    # Half the bytes land, then the disk gives up. Writing straight to the
+    # target would leave that half behind under the real name, and the next run
+    # would adopt it through the is_file() check at the top. The .part that
+    # takes the hit instead is cleaned up on the way out, so the directory is
+    # left exactly as it was found.
+    write_bytes = Path.write_bytes
+
+    def write_half_then_fail(self: Path, data: bytes) -> int:
+        write_bytes(self, data[: len(data) // 2])
+        raise OSError("No space left on device")
+
+    monkeypatch.setattr(Path, "write_bytes", write_half_then_fail)
+
+    with pytest.raises(OSError, match="No space left"):
+        download_document(doc, tmp_path)
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_download_document_creates_a_missing_raw_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    doc = _make_document(filename="new.pdf", pages=2)
+    raw_dir = tmp_path / "data" / "raw"
+
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(200, _make_pdf_bytes(2)))
+
+    download_document(doc, raw_dir)
+
+    assert (raw_dir / "new.pdf").is_file()
+
+
 def test_download_document_follows_redirects_and_identifies_itself(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -29,9 +29,11 @@ def download_document(doc: CorpusDocument, raw_dir: Path) -> None:
     """Downloads doc.url and stores it as raw_dir/doc.filename.
 
     If the target file already exists the download is skipped, so a rerun does
-    not fetch everything again. The response is validated before writing, so a
-    wrong file never reaches the disk — a later run would otherwise adopt it
-    silently through that same existence check.
+    not fetch everything again. That same existence check is why nothing
+    half-right may reach the target path: the response is validated before
+    anything is written, and the write goes through a `.part` file that is
+    renamed into place. Neither a wrong nor a truncated file is left behind for
+    a later run to adopt silently.
 
     Redirects are followed, so the bytes may well come from a host other than
     the one in the manifest. `doc.url` stays the provenance record either way:
@@ -86,7 +88,20 @@ def download_document(doc: CorpusDocument, raw_dir: Path) -> None:
 
     check_pages(doc.pages, io.BytesIO(response.content), label=doc.filename)
 
-    target.write_bytes(response.content)
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    tmp = target.with_name(target.name + ".part")
+
+    # `missing_ok` carries weight here rather than padding the call: on the
+    # success path replace() has already consumed the .part, so without it
+    # every completed download would end in FileNotFoundError. And `finally`
+    # rather than `except OSError`, because a Ctrl-C mid-write leaves exactly
+    # the same half file behind.
+    try:
+        tmp.write_bytes(response.content)
+        tmp.replace(target)
+    finally:
+        tmp.unlink(missing_ok=True)
+
     logger.info("%s: saved %.1f MB", doc.filename, len(response.content) / 1_048_576)
 
 
