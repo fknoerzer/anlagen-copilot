@@ -171,13 +171,19 @@ def ingest_document(
 
     logger.info("%s: starting to embed %d pages", document.id, len(usable))
 
-    rejected: list[int] = []
+    rejected = 0
 
     for page_number, text in usable:
         try:
             vector = embed(client, text)
-        except BadRequestError:
-            rejected.append(page_number)
+        except BadRequestError as exc:
+            # The API's own message names the reason and the measured length;
+            # recomputing either here would only add a second, disagreeable
+            # source of truth.
+            logger.warning(
+                "%s: page %d rejected (%d characters): %s", document.id, page_number, len(text), exc
+            )
+            rejected += 1
             continue
 
         conn.execute(
@@ -192,16 +198,15 @@ def ingest_document(
 
     if rejected:
         logger.warning(
-            "%s: %d of %d pages rejected by embedding model: %s",
+            "%s: %d of %d pages rejected by the embedding model",
             document.id,
-            len(rejected),
-            len(usable),
             rejected,
+            len(usable),
         )
 
     logger.info(
         "%s: embedded %d of %d pages",
         document.id,
-        len(usable) - len(rejected),
+        len(usable) - rejected,
         len(pages),
     )
