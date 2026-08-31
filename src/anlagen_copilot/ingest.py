@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 from openai import BadRequestError, OpenAI
+from pgvector import Vector
 from psycopg import Connection
 from pypdf import PasswordType, PdfReader
 from pypdf.errors import DependencyError, PdfReadError
@@ -192,7 +193,19 @@ def ingest_document(
             VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT DO NOTHING
             """,
-            (get_settings().ingest_strategy, document.id, page_number, text, vector),
+            (
+                get_settings().ingest_strategy,
+                document.id,
+                page_number,
+                text,
+                # Vector() rather than the bare list: register_vector() registers a
+                # dumper for Vector and numpy.ndarray, not for list, so a list is sent
+                # as float8[]. This INSERT would survive that — pgvector defines an
+                # assignment cast from double precision[] to vector, and an INSERT is
+                # an assignment context. The same value next to an operator would not:
+                # `embedding <=> %s` needs an implicit cast, and there is none.
+                Vector(vector),
+            ),
         )
         logger.debug("%s: embedded page %d (%d characters)", document.id, page_number, len(text))
 
