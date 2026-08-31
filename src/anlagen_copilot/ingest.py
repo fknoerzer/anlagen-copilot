@@ -3,7 +3,7 @@ from pathlib import Path
 
 from openai import BadRequestError, OpenAI
 from psycopg import Connection
-from pypdf import PdfReader
+from pypdf import PasswordType, PdfReader
 from pypdf.errors import DependencyError, PdfReadError
 
 from anlagen_copilot.corpus import CorpusDocument
@@ -47,7 +47,7 @@ def extract_pages(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, st
         if document.encrypted:
             result = reader.decrypt("")
 
-            if result == 0:
+            if result == PasswordType.NOT_DECRYPTED:
                 raise DocumentError(f"{document.id}: decryption with empty password failed")
 
         # Ohne Auszug die tatsächliche Seitenzahl der Datei, nicht document.pages:
@@ -70,7 +70,7 @@ def extract_pages(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, st
         for page_number, page in enumerate(
             reader.pages[first_page - 1 : last_page], start=first_page
         ):
-            text = page.extract_text()
+            text = page.extract_text() or ""
             pages.append((page_number, text))
     except (PdfReadError, DependencyError) as exc:
         raise DocumentError(f"{document.id}: PDF not readable") from exc
