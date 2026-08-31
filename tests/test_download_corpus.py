@@ -117,3 +117,43 @@ def test_download_document_raises_on_page_mismatch_and_leaves_no_file(
         download_document(doc, tmp_path)
 
     assert not (tmp_path / "wrong-pages.pdf").is_file()
+
+
+def test_download_document_raises_on_redirect_loop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    doc = _make_document(filename="looping.pdf")
+
+    def raise_redirect_loop(*args: object, **kwargs: object) -> httpx.Response:
+        raise httpx.TooManyRedirects("exceeded maximum allowed redirects")
+
+    monkeypatch.setattr(httpx, "get", raise_redirect_loop)
+
+    with pytest.raises(DocumentError, match="redirect loop"):
+        download_document(doc, tmp_path)
+
+    assert not (tmp_path / "looping.pdf").is_file()
+
+
+def test_download_document_follows_redirects_and_identifies_itself(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    doc = _make_document(filename="new.pdf", pages=2)
+    calls: list[dict[str, object]] = []
+
+    def record(*args: object, **kwargs: object) -> httpx.Response:
+        calls.append(kwargs)
+        return _fake_response(200, _make_pdf_bytes(2))
+
+    monkeypatch.setattr(httpx, "get", record)
+
+    download_document(doc, tmp_path)
+
+    # kwargs comes in as dict[str, object], so the header dict has to be
+    # narrowed before it can be indexed a second time. isinstance rather than
+    # cast: it checks the assumption instead of asserting it away.
+    headers = calls[0]["headers"]
+    assert isinstance(headers, dict)
+
+    assert calls[0]["follow_redirects"] is True
+    assert "anlagen-copilot" in headers["User-Agent"]

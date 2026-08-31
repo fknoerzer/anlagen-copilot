@@ -1,5 +1,6 @@
 import io
 import logging
+from importlib.metadata import version
 from pathlib import Path
 from typing import BinaryIO
 
@@ -11,6 +12,17 @@ from anlagen_copilot.errors import DocumentError
 
 logger = logging.getLogger(__name__)
 
+# A library's default agent ("python-httpx/0.28.1") is a common reason for a 403
+# on manufacturer sites, and the contact URL lets whoever finds these requests in
+# a server log see where they come from. The version comes from the package
+# metadata rather than being written out, so it cannot drift from pyproject.toml.
+_HTTP_HEADERS = {
+    "User-Agent": (
+        f"anlagen-copilot/{version('anlagen-copilot')} "
+        "(+https://github.com/fknoerzer/anlagen-copilot)"
+    )
+}
+
 
 def download_document(doc: CorpusDocument, raw_dir: Path) -> None:
     """Downloads doc.url and stores it as raw_dir/doc.filename.
@@ -20,12 +32,20 @@ def download_document(doc: CorpusDocument, raw_dir: Path) -> None:
     mismatch never leaves a wrong file on disk — a later run would otherwise
     adopt it silently through that same existence check.
 
+    Redirects are followed, so the bytes may well come from a host other than
+    the one in the manifest. `doc.url` stays the provenance record either way:
+    it is the address the manufacturer publishes, not necessarily the CDN that
+    ends up serving the file.
+
     Raises:
-        DocumentError: On 4xx/5xx responses from the server, or when the
-            downloaded PDF does not have the page count the manifest declares
-            (see check_pages). Both concern exactly this document. Network
-            errors (timeout, no DNS) propagate as httpx exceptions instead —
-            they affect every further download just the same.
+        DocumentError: On 4xx/5xx responses from the server, on a redirect
+            loop, and when the downloaded PDF does not have the page count the
+            manifest declares (see check_pages). All three concern exactly this
+            document. Network errors (timeout, no DNS) propagate as httpx
+            exceptions instead — they affect every further download just the
+            same. The line is drawn by reach, not by exception family:
+            TooManyRedirects and ConnectError are both httpx RequestErrors, yet
+            only the first is a property of this one URL.
     """
     target = raw_dir / doc.filename
 
@@ -34,7 +54,29 @@ def download_document(doc: CorpusDocument, raw_dir: Path) -> None:
         return
 
     logger.info("%s: downloading from %s", doc.filename, doc.url)
-    response = httpx.get(str(doc.url), timeout=30)
+
+    # httpx does not follow redirects on its own, unlike requests — and vendor
+    # download links routinely point at a CDN. Only TooManyRedirects is caught
+    # here: it is a RequestError, not an HTTPStatusError, so it would otherwise
+    # slip past the handler below and end the whole run over one bad URL.
+    try:
+        response = httpx.get(
+            str(doc.url),
+            timeout=30,
+            follow_redirects=True,
+            headers=_HTTP_HEADERS,
+        )
+    except httpx.TooManyRedirects as exc:
+        raise DocumentError(f"{doc.filename}: redirect loop at {doc.url}") from exc
+
+    if response.history:
+        logger.info(
+            "%s: %d redirect(s), final URL %s",
+            doc.filename,
+            len(response.history),
+            response.url,
+        )
+
     try:
         response.raise_for_status()
     except httpx.HTTPStatusError as exc:
