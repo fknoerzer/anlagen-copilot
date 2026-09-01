@@ -6,6 +6,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from anlagen_copilot.paths import PROJECT_ROOT
 
+# Named rather than written out at the field, because the same value is used in
+# three places: the run picks one, `ingest_document()` writes it into
+# `chunks.strategy`, and `retrieve()` filters by it. A third strategy is then
+# one line to change instead of three to find.
+Strategy = Literal["naive", "advanced"]
+
 
 class Settings(BaseSettings):
     """Runtime configuration, read from environment variables and `.env`.
@@ -36,7 +42,7 @@ class Settings(BaseSettings):
     postgres_dsn: PostgresDsn
     llm_temperature: float = 0.0  # more deterministic for RAG
 
-    ingest_strategy: Literal["naive", "advanced"] = "naive"
+    ingest_strategy: Strategy = "naive"
 
     embedding_dimensions: int = Field(default=1536, ge=1, le=2000)
 

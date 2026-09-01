@@ -1,0 +1,77 @@
+"""Similarity search over the indexed chunks.
+
+The read side of the pipeline: a question goes in, the pages nearest to it come
+back. Purely reading — nothing here writes, so a query can be repeated as often
+as an eval run needs.
+"""
+
+from openai import OpenAI
+from pgvector import Vector
+from psycopg import Connection
+from psycopg.rows import class_row
+from pydantic import BaseModel
+
+from anlagen_copilot.embeddings import embed
+from anlagen_copilot.settings import Strategy
+
+
+class Source(BaseModel):
+    """One retrieved page, as far as the database knows it.
+
+    Only `document_id`, `page`, `content` and `score` are filled here. Title,
+    manufacturer, doc type and the PDF link live in `corpus.yaml`, not in the
+    table, and `excerpt` is cut from `content` later — the answering layer adds
+    all five, which is why they are optional rather than required.
+    """
+
+    document_id: str
+    title: str | None = None
+    manufacturer: str | None = None
+    doc_type: str | None = None
+    page: int
+    score: float
+    excerpt: str | None = None
+    pdf_url: str | None = None
+    content: str
+
+
+def retrieve(
+    client: OpenAI, text: str, conn: Connection, strategy: Strategy, *, k: int = 5
+) -> list[Source]:
+    """Returns the `k` chunks closest to `text`, best match first.
+
+    `score` is a similarity, not a distance: 1.0 is identical, and higher is
+    better. `<=>` is the only operator that may be used here — the HNSW index is
+    built with `vector_cosine_ops`, and `<->` or `<#>` would quietly fall back to
+    a sequential scan over a different metric.
+
+    The query vector is wrapped in `Vector()` because `register_vector()`
+    registers a dumper for `Vector` and `numpy.ndarray`, not for `list`. Beside
+    an operator that is not a cosmetic difference: a bare list fails with
+    `operator does not exist: vector <=> double precision[]`.
+
+    `strategy` has no default on purpose. Comparing the strategies is what the
+    eval set exists for, and a value read from the settings would make the
+    result depend on the environment instead of on the call.
+
+    Raises:
+        ValueError: When `k` is below 1. `LIMIT 0` would return no rows at all,
+            which is indistinguishable from finding nothing.
+    """
+    if k < 1:
+        raise ValueError(f"k must be at least 1 (chunks to retrieve), got {k}")
+
+    embedding = embed(client, text)
+
+    with conn.cursor(row_factory=class_row(Source)) as cur:
+        return cur.execute(
+            """
+            SELECT document_id, page, content,
+                   1 - (embedding <=> %(vec)s) AS score
+            FROM chunks
+            WHERE strategy = %(strategy)s
+            ORDER BY embedding <=> %(vec)s
+            LIMIT %(k)s
+            """,
+            {"vec": Vector(embedding), "strategy": strategy, "k": k},
+        ).fetchall()
