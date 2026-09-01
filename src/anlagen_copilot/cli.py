@@ -4,8 +4,9 @@ from openai import OpenAI
 
 from anlagen_copilot.corpus import load_corpus
 from anlagen_copilot.db import get_connection
+from anlagen_copilot.embeddings import check_embedding_config
 from anlagen_copilot.errors import DocumentError
-from anlagen_copilot.ingest import check_embedding_config, ingest_document
+from anlagen_copilot.ingest import ingest_document
 from anlagen_copilot.logging_setup import setup_logging
 from anlagen_copilot.scripts.download_corpus import download_document
 from anlagen_copilot.settings import get_settings
