@@ -157,9 +157,19 @@ def ingest_document(
     covers every page alike — a dimension the model will not take, an unknown
     model — has ended the run before the first page was ever read.
 
-    Writes but does not commit. The caller owns the transaction, so a document
-    that fails midway leaves no half-written index behind, and `ON CONFLICT DO
-    NOTHING` makes a rerun a no-op rather than a source of duplicates.
+    A rerun replaces the document rather than skipping it: the `DELETE` ahead of
+    the loop clears what this strategy holds for this document, and the page
+    loop writes it again. That is what lets a corrected extraction reach the
+    index. Scoped by `strategy` as well as `document_id`, so the two strategies
+    keep out of each other's way in the same table.
+
+    `DELETE` rather than an upsert, because a page set can shrink: narrow
+    `excerpt_pages` and an upsert leaves rows behind for pages that are no
+    longer read.
+
+    Writes but does not commit. The caller's transaction is what keeps the
+    `DELETE` and the `INSERT`s together — a document that fails midway is left
+    as it was, not emptied.
 
     Raises:
         DocumentError: From `extract_pages()`, when the PDF is unreadable or
@@ -178,6 +188,15 @@ def ingest_document(
         )
 
     logger.info("%s: starting to embed %d pages", document.id, len(usable))
+
+    strategy = get_settings().ingest_strategy
+
+    conn.execute(
+        """
+        DELETE FROM chunks WHERE strategy = %s AND document_id = %s
+        """,
+        (strategy, document.id),
+    )
 
     rejected = 0
 
@@ -198,10 +217,9 @@ def ingest_document(
             """
             INSERT INTO chunks (strategy, document_id, page, content, embedding)
             VALUES (%s, %s, %s, %s, %s)
-            ON CONFLICT DO NOTHING
             """,
             (
-                get_settings().ingest_strategy,
+                strategy,
                 document.id,
                 page_number,
                 text,

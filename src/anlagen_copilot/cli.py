@@ -23,8 +23,11 @@ def main() -> None:
     than after the first manual has been fetched over the wire.
 
     One transaction per document rather than one per run, so an INFO line means
-    the same thing as the database state and a restart makes use of the
-    idempotency that `ON CONFLICT DO NOTHING` already provides.
+    the same thing as the database state. The boundary does more than tidy the
+    log: `ingest_document()` deletes the document's chunks before writing them
+    again, and only this transaction makes the two halves inseparable. Abort in
+    between and the document stands as it was; without it, a failed rerun would
+    leave it empty.
     `download_document()` sits outside the transaction deliberately: it does no
     database work, but would hold one open across a 30-second download.
 
