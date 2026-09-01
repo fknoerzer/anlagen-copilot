@@ -27,4 +27,5 @@ data/*
 data/raw/*
 !data/raw/corpus.yaml
 !data/eval_set.yaml
+!data/eval_runs.jsonl
 TODO.md
