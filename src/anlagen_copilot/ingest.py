@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+import ftfy
 from openai import BadRequestError, OpenAI
 from pgvector import Vector
 from psycopg import Connection
@@ -19,6 +20,12 @@ logger = logging.getLogger(__name__)
 # excerpt. The warning therefore only fires once a new manual of that size
 # arrives unfiltered — today it stays silent.
 _EXCERPT_HINT_PAGES = 500
+
+# pypdf hands back cp1252 bytes as C1 control characters where it cannot resolve
+# a font's encoding — 554 of them in one manual, invisible in a citation and
+# noise in an embedding. `uncurl_quotes` stays off: flattening German „…" to
+# "…" is typography, not repair, and would touch 9 unaffected chunks.
+_TEXT_FIXES = ftfy.TextFixerConfig(uncurl_quotes=False)
 
 
 def extract_pages(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, str]]:
@@ -72,7 +79,7 @@ def extract_pages(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, st
         for page_number, page in enumerate(
             reader.pages[first_page - 1 : last_page], start=first_page
         ):
-            text = page.extract_text() or ""
+            text = ftfy.fix_text(page.extract_text() or "", config=_TEXT_FIXES)
             pages.append((page_number, text))
     except (PdfReadError, DependencyError) as exc:
         raise DocumentError(f"{document.id}: PDF not readable") from exc
