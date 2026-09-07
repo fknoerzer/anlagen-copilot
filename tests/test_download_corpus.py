@@ -1,47 +1,15 @@
-import io
-from datetime import date
 from pathlib import Path
 
 import httpx
 import pytest
-from pypdf import PdfWriter
+from helpers import make_document, make_pdf, make_pdf_bytes
 
-from anlagen_copilot.corpus import CorpusDocument
 from anlagen_copilot.errors import DocumentError
 from anlagen_copilot.scripts.download_corpus import check_pages, download_document
 
 # What a download portal serves instead of the file when it wants a browser:
 # HTML, at status 200. raise_for_status() has nothing to complain about.
 _CHALLENGE_PAGE = b"<!DOCTYPE html><html><body>Please enable JavaScript</body></html>"
-
-
-def _make_pdf_bytes(pages: int) -> bytes:
-    writer = PdfWriter()
-    for _ in range(pages):
-        writer.add_blank_page(width=210, height=297)
-    buf = io.BytesIO()
-    writer.write(buf)
-    return buf.getvalue()
-
-
-def _make_pdf(path: Path, pages: int) -> None:
-    path.write_bytes(_make_pdf_bytes(pages))
-
-
-def _make_document(**overrides: object) -> CorpusDocument:
-    defaults: dict[str, object] = {
-        "id": "test-doc",
-        "filename": "test-doc.pdf",
-        "title": "Testdokument",
-        "manufacturer": "Testhersteller",
-        "doc_type": "betriebsanleitung",
-        "domain": "mechanik",
-        "pages": 2,
-        "url": "https://example.com/test-doc.pdf",
-        "retrieved": date(2026, 7, 29),
-    }
-    defaults.update(overrides)
-    return CorpusDocument.model_validate(defaults)
 
 
 def _fake_response(status_code: int, content: bytes = b"") -> httpx.Response:
@@ -52,14 +20,14 @@ def _fake_response(status_code: int, content: bytes = b"") -> httpx.Response:
 
 def test_check_pages_accepts_matching_count(tmp_path: Path) -> None:
     pdf_path = tmp_path / "doc.pdf"
-    _make_pdf(pdf_path, pages=3)
+    make_pdf(pdf_path, pages=3)
 
     check_pages(3, pdf_path, label=pdf_path.name)  # must not raise
 
 
 def test_check_pages_rejects_mismatch(tmp_path: Path) -> None:
     pdf_path = tmp_path / "doc.pdf"
-    _make_pdf(pdf_path, pages=3)
+    make_pdf(pdf_path, pages=3)
 
     with pytest.raises(DocumentError, match="expected 5"):
         check_pages(5, pdf_path, label=pdf_path.name)
@@ -68,7 +36,7 @@ def test_check_pages_rejects_mismatch(tmp_path: Path) -> None:
 def test_download_document_skips_existing_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    doc = _make_document(filename="existing.pdf")
+    doc = make_document(filename="existing.pdf")
     (tmp_path / "existing.pdf").write_bytes(b"already present")
 
     def fail_if_called(*args: object, **kwargs: object) -> httpx.Response:
@@ -84,8 +52,8 @@ def test_download_document_skips_existing_file(
 def test_download_document_writes_file_on_success(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    doc = _make_document(filename="new.pdf", pages=2)
-    pdf_bytes = _make_pdf_bytes(pages=2)
+    doc = make_document(filename="new.pdf", pages=2)
+    pdf_bytes = make_pdf_bytes(pages=2)
 
     monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(200, pdf_bytes))
 
@@ -99,7 +67,7 @@ def test_download_document_writes_file_on_success(
 def test_download_document_raises_on_http_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    doc = _make_document(filename="broken.pdf")
+    doc = make_document(filename="broken.pdf")
 
     monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(404))
 
@@ -112,8 +80,8 @@ def test_download_document_raises_on_http_error(
 def test_download_document_raises_on_page_mismatch_and_leaves_no_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    doc = _make_document(filename="wrong-pages.pdf", pages=5)
-    pdf_bytes = _make_pdf_bytes(pages=2)
+    doc = make_document(filename="wrong-pages.pdf", pages=5)
+    pdf_bytes = make_pdf_bytes(pages=2)
 
     monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(200, pdf_bytes))
 
@@ -134,7 +102,7 @@ def test_check_pages_rejects_content_that_is_not_a_pdf(tmp_path: Path) -> None:
 def test_download_document_rejects_challenge_page_served_at_200(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    doc = _make_document(filename="challenge.pdf")
+    doc = make_document(filename="challenge.pdf")
 
     monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(200, _CHALLENGE_PAGE))
 
@@ -147,7 +115,7 @@ def test_download_document_rejects_challenge_page_served_at_200(
 def test_download_document_raises_on_redirect_loop(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    doc = _make_document(filename="looping.pdf")
+    doc = make_document(filename="looping.pdf")
 
     def raise_redirect_loop(*args: object, **kwargs: object) -> httpx.Response:
         raise httpx.TooManyRedirects("exceeded maximum allowed redirects")
@@ -163,9 +131,9 @@ def test_download_document_raises_on_redirect_loop(
 def test_download_document_leaves_no_partial_file_behind(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    doc = _make_document(filename="new.pdf", pages=2)
+    doc = make_document(filename="new.pdf", pages=2)
 
-    monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(200, _make_pdf_bytes(2)))
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(200, make_pdf_bytes(2)))
 
     download_document(doc, tmp_path)
 
@@ -175,8 +143,8 @@ def test_download_document_leaves_no_partial_file_behind(
 def test_download_document_writes_no_target_file_when_the_write_is_cut_short(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    doc = _make_document(filename="new.pdf", pages=2)
-    monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(200, _make_pdf_bytes(2)))
+    doc = make_document(filename="new.pdf", pages=2)
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(200, make_pdf_bytes(2)))
 
     # Half the bytes land, then the disk gives up. Writing straight to the
     # target would leave that half behind under the real name, and the next run
@@ -200,10 +168,10 @@ def test_download_document_writes_no_target_file_when_the_write_is_cut_short(
 def test_download_document_creates_a_missing_raw_dir(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    doc = _make_document(filename="new.pdf", pages=2)
+    doc = make_document(filename="new.pdf", pages=2)
     raw_dir = tmp_path / "data" / "raw"
 
-    monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(200, _make_pdf_bytes(2)))
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: _fake_response(200, make_pdf_bytes(2)))
 
     download_document(doc, raw_dir)
 
@@ -213,12 +181,12 @@ def test_download_document_creates_a_missing_raw_dir(
 def test_download_document_follows_redirects_and_identifies_itself(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    doc = _make_document(filename="new.pdf", pages=2)
+    doc = make_document(filename="new.pdf", pages=2)
     calls: list[dict[str, object]] = []
 
     def record(*args: object, **kwargs: object) -> httpx.Response:
         calls.append(kwargs)
-        return _fake_response(200, _make_pdf_bytes(2))
+        return _fake_response(200, make_pdf_bytes(2))
 
     monkeypatch.setattr(httpx, "get", record)
 

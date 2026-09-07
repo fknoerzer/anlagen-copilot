@@ -1,39 +1,18 @@
 """Tests for anlagen_copilot.corpus: loading/validating the corpus manifest."""
 
-from datetime import date
 from pathlib import Path
 
 import pytest
 import yaml
+from helpers import make_document
 
-from anlagen_copilot.corpus import CorpusDocument, load_corpus
-
-
-def _make_document(**overrides: object) -> CorpusDocument:
-    """Builds a minimally valid CorpusDocument, mandatory fields as placeholders.
-
-    Tests that check a single field (excerpt_pages, say) then do not have to
-    spell out every mandatory field of CorpusDocument on each call.
-    """
-    defaults: dict[str, object] = {
-        "id": "test-doc",
-        "filename": "test-doc.pdf",
-        "title": "Testdokument",
-        "manufacturer": "Testhersteller",
-        "doc_type": "betriebsanleitung",
-        "domain": "mechanik",
-        "pages": 100,
-        "url": "https://example.com/test-doc.pdf",
-        "retrieved": date(2026, 7, 29),
-    }
-    defaults.update(overrides)
-    return CorpusDocument.model_validate(defaults)
+from anlagen_copilot.corpus import load_corpus
 
 
 def test_load_corpus_succeeds(tmp_path: Path) -> None:
-    """Uses hand-written YAML on purpose rather than _make_document().
+    """Uses hand-written YAML on purpose rather than make_document().
 
-    _make_document() returns an already validated CorpusDocument object, not
+    make_document() returns an already validated CorpusDocument object, not
     YAML — but this test is about the file and parsing pipeline of
     load_corpus(), as close as possible to what is actually written by hand in
     corpus.yaml, including YAML pitfalls such as indentation.
@@ -94,27 +73,27 @@ def test_load_corpus_rejects_missing_file(tmp_path: Path) -> None:
 
 
 def test_excerpt_pages_none_is_allowed() -> None:
-    doc = _make_document(pages=100, excerpt_pages=None)
+    doc = make_document(pages=100, excerpt_pages=None)
 
     assert doc.excerpt_pages is None
 
 
 def test_excerpt_pages_accepts_valid_range() -> None:
-    doc = _make_document(pages=100, excerpt_pages=(10, 20))
+    doc = make_document(pages=100, excerpt_pages=(10, 20))
 
     assert doc.excerpt_pages == (10, 20)
 
 
 def test_excerpt_pages_rejects_start_below_one() -> None:
     with pytest.raises(ValueError, match="first page"):
-        _make_document(pages=100, excerpt_pages=(0, 10))
+        make_document(pages=100, excerpt_pages=(0, 10))
 
 
 def test_excerpt_pages_rejects_start_not_before_end() -> None:
     with pytest.raises(ValueError, match="must be less than end"):
-        _make_document(pages=100, excerpt_pages=(20, 10))
+        make_document(pages=100, excerpt_pages=(20, 10))
 
 
 def test_excerpt_pages_rejects_end_beyond_total_pages() -> None:
     with pytest.raises(ValueError, match="past the last page"):
-        _make_document(pages=100, excerpt_pages=(10, 200))
+        make_document(pages=100, excerpt_pages=(10, 200))

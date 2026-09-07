@@ -3,30 +3,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from anlagen_copilot.eval import EvalSet, load_eval
-
-
-def _make_eval_set() -> EvalSet:
-    """Builds a minimally valid EvalSet, mandatory fields as placeholders.
-
-    Tests that check a single field then do not have to spell out every
-    mandatory field of EvalQuestion on each call.
-    """
-    defaults: dict[str, object] = {
-        "questions": [
-            {
-                "id": "q-test",
-                "category": "lookup",
-                "question": "Testfrage?",
-                "expected_sources": [
-                    {"document_id": "sew-getriebe-ba", "page": 1},
-                ],
-                "expected_facts": ["Testfakt."],
-                "notes": "Test-Notiz.",
-            },
-        ],
-    }
-    return EvalSet.model_validate(defaults)
+from anlagen_copilot.eval import load_eval
 
 
 def test_load_eval_succeeds(tmp_path: Path) -> None:
