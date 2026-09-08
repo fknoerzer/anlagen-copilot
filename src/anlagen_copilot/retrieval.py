@@ -9,7 +9,7 @@ from openai import OpenAI
 from pgvector import Vector
 from psycopg import Connection
 from psycopg.rows import class_row
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from anlagen_copilot.embeddings import embed
 from anlagen_copilot.settings import Strategy
@@ -22,7 +22,16 @@ class Source(BaseModel):
     manufacturer, doc type and the PDF link live in `corpus.yaml`, not in the
     table, and `excerpt` is cut from `content` later — the answering layer adds
     all five, which is why they are optional rather than required.
+
+    `extra="forbid"` earns its place on the way in: `class_row(Source)` hands
+    every selected column to the constructor by name, so a column the model
+    does not know is a mismatch between query and model — better refused here
+    than dropped and missed. `frozen=True` means the answering layer builds a
+    new object with `model_copy(update=...)` rather than filling the fields in
+    place, which is how the rest of the models in this project behave too.
     """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     document_id: str
     title: str | None = None
