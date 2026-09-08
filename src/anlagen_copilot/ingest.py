@@ -105,7 +105,10 @@ def ingest_document(
     Two kinds of page never reach the index, each counted in a warning instead
     of ending the document: pages without extractable text (scans, pure
     graphics) and pages the embedding model rejects — practically always the
-    token limit on a dense table page.
+    token limit on a dense table page. Unless it is every page: a document that
+    keeps nothing is a failure, not an empty success. The two say so in
+    different words, because they call for different repairs — an OCR pass on
+    one side, a smaller chunk on the other.
 
     A rejection may be read as a statement about that one page because
     `check_embedding_config()` has already ruled out the alternative: a 400 that
@@ -128,8 +131,10 @@ def ingest_document(
 
     Raises:
         DocumentError: From `extract_pages()`, when the PDF is unreadable or
-            will not open with an empty password. A rejected page is skipped;
-            everything else propagates unwrapped and ends the run.
+            will not open with an empty password; from here, when no page
+            carries extractable text and when every page that does is rejected.
+            A single rejected page is skipped; everything else propagates
+            unwrapped and ends the run.
     """
     pages = extract_pages(document, raw_dir)
     usable = [(page_number, text) for page_number, text in pages if text.strip()]
@@ -145,6 +150,9 @@ def ingest_document(
     logger.info("%s: starting to embed %d pages", document.id, len(usable))
 
     strategy = get_settings().ingest_strategy
+
+    if not usable:
+        raise DocumentError(f"{document.id}: no page with extractable text")
 
     conn.execute(
         """
@@ -188,6 +196,9 @@ def ingest_document(
             ),
         )
         logger.debug("%s: embedded page %d (%d characters)", document.id, page_number, len(text))
+
+    if rejected == len(usable):
+        raise DocumentError(f"{document.id}: all {rejected} pages rejected by the embedding model")
 
     if rejected:
         logger.warning(

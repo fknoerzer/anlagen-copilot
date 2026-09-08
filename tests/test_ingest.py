@@ -135,28 +135,49 @@ def test_ingest_document_writes_one_row_per_usable_page(
     assert was_logged(caplog, logging.WARNING, "skipped 1 of 3 pages"), caplog.text
 
 
-def test_ingest_document_empties_the_document_when_every_page_is_rejected(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+def test_ingest_document_aborts_when_no_page_carries_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Holds today's behaviour, which is a defect (TODO C) rather than a feature.
+    """A scan-only manual ends the document before the table is touched.
 
-    The DELETE stands, no INSERT follows, and the function returns *normally* —
-    so `cli.main()` counts the document as a success and a manual leaves the
-    index with exit 0.
-
-    When the guard lands, invert this test (`pytest.raises(DocumentError)`,
-    `_verbs(conn) == []`); do not repair it into green.
+    `make_pdf()` writes pages that extract to `""`, so `usable` is empty — the
+    guard ahead of the `DELETE`, which is why not a single statement runs. The
+    embedding mock would raise if it were reached; it never is.
     """
-    monkeypatch.setattr(ingest, "embed", Mock(side_effect=REJECTED))
-    make_text_pdf(tmp_path / "doc.pdf", ["eine Seite"])
+    monkeypatch.setattr(ingest, "embed", Mock(side_effect=AssertionError("must not embed")))
+    make_pdf(tmp_path / "doc.pdf", pages=2)
     doc = make_document(id="test-doc", filename="doc.pdf")
     conn = MagicMock()
 
-    with caplog.at_level(logging.WARNING):
+    with pytest.raises(DocumentError, match="no page with extractable text"):
+        ingest_document(NO_CLIENT, doc, conn, tmp_path)
+
+    assert _verbs(conn) == []
+
+
+def test_ingest_document_aborts_when_every_page_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A document that keeps no page fails; it does not pass as an empty success.
+
+    Pages with text that the model turns down — the other reason to give up,
+    and a different message from the test above, so a log says which of the two
+    happened. Both would match "no page with extractable text"; only one of
+    them means it.
+
+    The `DELETE` has run by then and the mock sees it. Taking it back is the
+    caller's transaction, not this function — what must not appear is an
+    INSERT.
+    """
+    monkeypatch.setattr(ingest, "embed", Mock(side_effect=REJECTED))
+    make_text_pdf(tmp_path / "doc.pdf", ["erste Seite", "zweite Seite"])
+    doc = make_document(id="test-doc", filename="doc.pdf")
+    conn = MagicMock()
+
+    with pytest.raises(DocumentError, match="all 2 pages rejected by the embedding model"):
         ingest_document(NO_CLIENT, doc, conn, tmp_path)
 
     assert _verbs(conn) == ["DELETE"]
-    assert was_logged(caplog, logging.WARNING, "1 of 1 pages rejected"), caplog.text
 
 
 def test_ingest_document_skips_a_rejected_page_and_keeps_the_rest(
