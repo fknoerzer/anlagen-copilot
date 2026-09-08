@@ -45,6 +45,14 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "G", "LOG"]
 
+[tool.pytest.ini_options]
+# `--strict-markers` is what gives the registration below any teeth: without it
+# a mistyped `@pytest.mark.integraton` is a warning and the test simply runs
+# unmarked. It does not protect the command line — `-m integraton` deselects
+# everything and `-m "not integraton"` runs everything, both without a word.
+addopts = "--strict-markers"
+markers = ["integration: needs a running Postgres (docker compose up -d)"]
+
 [tool.mypy]
 strict = true
 ignore_missing_imports = true

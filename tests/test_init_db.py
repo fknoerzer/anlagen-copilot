@@ -9,7 +9,7 @@ from anlagen_copilot.scripts.init_db import init_db
 # extension that way before `get_connection()` needs it. Env from conftest.py.
 # `db_available` is needed all the same — these two reach for Postgres from the
 # test body, where a missing container would fail rather than skip.
-pytestmark = pytest.mark.usefixtures("db_available")
+pytestmark = [pytest.mark.usefixtures("db_available"), pytest.mark.integration]
 
 
 def test_init_db_is_idempotent() -> None:
