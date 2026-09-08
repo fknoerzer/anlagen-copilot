@@ -10,12 +10,31 @@ import io
 from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
+from typing import cast
 
+import httpx
 import pytest
+from openai import AuthenticationError, BadRequestError, OpenAI
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from anlagen_copilot.corpus import CorpusDocument
+from anlagen_copilot.eval import EvalQuestion
+
+# For calls that never reach the client: `embed()` patched out, or an argument
+# rejected before it. None rather than a mock, which would absorb an unexpected
+# access in silence instead of naming the line that made it.
+NO_CLIENT = cast(OpenAI, None)
+
+# The OpenAI errors take an httpx.Response, not a message: their `status_code`
+# and `response` are part of the public surface. One instance each is enough —
+# the content is irrelevant, only the type is, since that is what the callers
+# under test branch on.
+_REQUEST = httpx.Request("POST", "https://api.openai.com/v1/embeddings")
+REJECTED = BadRequestError("rejected", response=httpx.Response(400, request=_REQUEST), body=None)
+UNAUTHORIZED = AuthenticationError(
+    "invalid api key", response=httpx.Response(401, request=_REQUEST), body=None
+)
 
 
 def make_document(**overrides: object) -> CorpusDocument:
@@ -120,6 +139,25 @@ def make_text_pdf(path: Path, texts: Sequence[str | None]) -> None:
     writer.write(path)
 
 
+def make_eval_question(**overrides: object) -> EvalQuestion:
+    """Builds a minimally valid EvalQuestion, mandatory fields as placeholders.
+
+    `document_id` is a real one from corpus.yaml rather than a placeholder:
+    `EvalSet.check_document_id()` validates every id against the manifest, so
+    an invented one passes on its own and fails the moment the question is put
+    into a set — two lines further down, in a different error.
+    """
+    defaults: dict[str, object] = {
+        "id": "q-test",
+        "category": "lookup",
+        "question": "Testfrage?",
+        "expected_sources": [{"document_id": "sew-getriebe-ba", "page": 1}],
+        "expected_facts": ["Testfakt."],
+    }
+    defaults.update(overrides)
+    return EvalQuestion.model_validate(defaults)
+
+
 def was_logged(caplog: pytest.LogCaptureFixture, level: int, text: str) -> bool:
     """Whether some record at `level` carries `text` in its formatted message.
 
@@ -138,3 +176,24 @@ def was_logged(caplog: pytest.LogCaptureFixture, level: int, text: str) -> bool:
     the actual log printed alongside.
     """
     return any(record.levelno == level and text in record.getMessage() for record in caplog.records)
+
+
+def fake_embed(client: OpenAI, text: str) -> list[float]:
+    """Stands in for `embed()`: a fixed vector, and `REJECTED` for one text.
+
+    Patch it over `embed` in the module that calls it — the name is looked up
+    in the caller's globals, so `anlagen_copilot.ingest.embed`, not
+    `anlagen_copilot.embeddings.embed`.
+
+    The magic string is `"zu lang"`: a fixture page carrying it is rejected the
+    way an over-long one would be, everything else comes back embedded. Bound
+    to the text rather than to the call count, so a fixture can gain or lose a
+    page without silently moving the rejection to another one.
+
+    Four dimensions because nothing here measures distances; where a caller
+    needs a different width, it is shorter to write its own fake than to make
+    this one configurable.
+    """
+    if text == "zu lang":
+        raise REJECTED
+    return [0.5] * 4

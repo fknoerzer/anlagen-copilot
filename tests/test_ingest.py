@@ -1,28 +1,24 @@
 import logging
 from pathlib import Path
-from typing import cast
 from unittest.mock import MagicMock, Mock
 
-import httpx
 import pytest
-from helpers import make_document, make_pdf, make_text_pdf, was_logged
-from openai import AuthenticationError, BadRequestError, OpenAI
+from helpers import (
+    NO_CLIENT,
+    REJECTED,
+    UNAUTHORIZED,
+    fake_embed,
+    make_document,
+    make_pdf,
+    make_text_pdf,
+    was_logged,
+)
+from openai import AuthenticationError
 from pgvector import Vector
 
 from anlagen_copilot import ingest
 from anlagen_copilot.errors import DocumentError
 from anlagen_copilot.ingest import extract_pages, ingest_document
-
-# Never touched: `embed()` is the only user of the client and every test below
-# patches it out. None rather than a mock, which would absorb an unexpected
-# access in silence instead of naming the line.
-_NO_CLIENT = cast(OpenAI, None)
-
-_REQUEST = httpx.Request("POST", "https://api.openai.com/v1/embeddings")
-_REJECTED = BadRequestError("rejected", response=httpx.Response(400, request=_REQUEST), body=None)
-_UNAUTHORIZED = AuthenticationError(
-    "invalid api key", response=httpx.Response(401, request=_REQUEST), body=None
-)
 
 
 def _verbs(conn: MagicMock) -> list[str]:
@@ -33,13 +29,6 @@ def _verbs(conn: MagicMock) -> list[str]:
 def _params(conn: MagicMock) -> list[tuple[object, ...]]:
     """The parameter tuple of each statement, in the same order."""
     return [call.args[1] for call in conn.execute.call_args_list]
-
-
-def _fake_embed(client: OpenAI, text: str) -> list[float]:
-    """Rejects the page whose text is `zu lang`, embeds every other one."""
-    if text == "zu lang":
-        raise _REJECTED
-    return [0.5] * 4
 
 
 def test_extract_pages_keeps_original_page_numbers_in_an_excerpt(tmp_path: Path) -> None:
@@ -127,13 +116,13 @@ def test_ingest_document_writes_one_row_per_usable_page(
     page numbers therefore come from real extraction, and page 1, which has no
     text, must reach no INSERT: the usable/skipped split, asserted by absence.
     """
-    monkeypatch.setattr(ingest, "embed", _fake_embed)
+    monkeypatch.setattr(ingest, "embed", fake_embed)
     make_text_pdf(tmp_path / "doc.pdf", [None, "zweite Seite", "dritte Seite"])
     doc = make_document(id="test-doc", filename="doc.pdf")
     conn = MagicMock()
 
     with caplog.at_level(logging.WARNING):
-        ingest_document(_NO_CLIENT, doc, conn, tmp_path)
+        ingest_document(NO_CLIENT, doc, conn, tmp_path)
 
     assert _verbs(conn) == ["DELETE", "INSERT", "INSERT"]
     assert _params(conn) == [
@@ -158,13 +147,13 @@ def test_ingest_document_empties_the_document_when_every_page_is_rejected(
     When the guard lands, invert this test (`pytest.raises(DocumentError)`,
     `_verbs(conn) == []`); do not repair it into green.
     """
-    monkeypatch.setattr(ingest, "embed", Mock(side_effect=_REJECTED))
+    monkeypatch.setattr(ingest, "embed", Mock(side_effect=REJECTED))
     make_text_pdf(tmp_path / "doc.pdf", ["eine Seite"])
     doc = make_document(id="test-doc", filename="doc.pdf")
     conn = MagicMock()
 
     with caplog.at_level(logging.WARNING):
-        ingest_document(_NO_CLIENT, doc, conn, tmp_path)
+        ingest_document(NO_CLIENT, doc, conn, tmp_path)
 
     assert _verbs(conn) == ["DELETE"]
     assert was_logged(caplog, logging.WARNING, "1 of 1 pages rejected"), caplog.text
@@ -178,13 +167,13 @@ def test_ingest_document_skips_a_rejected_page_and_keeps_the_rest(
     Needs a page that survives: with every page rejected, skipping and aborting
     look the same from out here, so `break` would pass just as well.
     """
-    monkeypatch.setattr(ingest, "embed", _fake_embed)
+    monkeypatch.setattr(ingest, "embed", fake_embed)
     make_text_pdf(tmp_path / "doc.pdf", [None, "zu lang", "zweite Seite"])
     doc = make_document(id="test-doc", filename="doc.pdf")
     conn = MagicMock()
 
     with caplog.at_level(logging.WARNING):
-        ingest_document(_NO_CLIENT, doc, conn, tmp_path)
+        ingest_document(NO_CLIENT, doc, conn, tmp_path)
 
     assert _verbs(conn) == ["DELETE", "INSERT"]
     assert _params(conn) == [
@@ -211,13 +200,13 @@ def test_ingest_document_lets_a_failure_of_the_whole_run_through(
     Nothing in the positive tests would notice a `except OpenAIError` here;
     they would all still pass. This is the only test that would not.
     """
-    monkeypatch.setattr(ingest, "embed", Mock(side_effect=_UNAUTHORIZED))
+    monkeypatch.setattr(ingest, "embed", Mock(side_effect=UNAUTHORIZED))
     make_text_pdf(tmp_path / "doc.pdf", ["erste Seite", "zweite Seite"])
     doc = make_document(id="test-doc", filename="doc.pdf")
     conn = MagicMock()
 
     with pytest.raises(AuthenticationError):
-        ingest_document(_NO_CLIENT, doc, conn, tmp_path)
+        ingest_document(NO_CLIENT, doc, conn, tmp_path)
 
     # The DELETE is already out when the exception leaves, and no INSERT
     # follows it. Undoing that is the caller's transaction in `cli.main()`,
