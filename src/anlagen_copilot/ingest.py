@@ -108,12 +108,11 @@ def ingest_document(
     the job of the advanced strategy, and the `UNIQUE (strategy, document_id,
     page)` constraint would have to give way with it.
 
-    Two kinds of page never reach the index, each counted in a warning instead
-    of ending the document: pages without extractable text (scans, pure
-    graphics) and pages the embedding model rejects — practically always the
-    token limit on a dense table page. Losing every page is a failure, not an
-    empty success — with a message per cause, since an OCR pass and a smaller
-    chunk are different repairs.
+    Two kinds of page never reach the index: pages without extractable text
+    (scans, pure graphics) and pages the embedding model rejects — practically
+    always the token limit on a dense table page. Either is a warning while
+    something survives and a `DocumentError` once nothing does, with a message
+    per cause, since an OCR pass and a smaller chunk are different repairs.
 
     A rejection may be read as a statement about that one page because
     `check_embedding_config()` has already ruled out the alternative: a 400 that

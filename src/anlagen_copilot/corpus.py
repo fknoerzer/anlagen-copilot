@@ -1,7 +1,7 @@
 """Pydantic representation of data/raw/corpus.yaml, the corpus manifest.
 
-Single source of truth for ingestion, retrieval filters, citations and
-provenance — see corpus.yaml itself for the rationale.
+Read once per run by `load_corpus()`, ahead of the first download — see
+corpus.yaml itself for the rationale behind the selection.
 """
 
 import logging

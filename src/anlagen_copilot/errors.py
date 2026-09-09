@@ -1,7 +1,6 @@
-"""The exception that carries the project's one failure distinction.
+"""The project's one exception type, raised across ingestion and download.
 
-Separates what concerns a single document from what concerns the whole run — the
-line the ingestion loop in `cli.main()` branches on.
+`cli.main()` is the only place that catches it.
 """
 
 

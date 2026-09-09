@@ -45,10 +45,9 @@ def main() -> None:
     every remaining document just the same and is left to end the run.
 
     Skipped and incomplete are counted apart. A skipped document did not get
-    through: missing from the index on a first run, still holding its earlier
-    chunks on a rerun, since the `DELETE` rolls back with the transaction. An
-    incomplete one is in the index and stays, minus the rejected pages. Same
-    exit code, different repair — hence two lists and two log lines.
+    through and the index holds whatever it held before; an incomplete one is in
+    the index and stays, minus the rejected pages. Same exit code, different
+    repair — hence two lists and two log lines.
 
     Raises:
         SystemExit: Code 1 if any document was skipped or came out incomplete,

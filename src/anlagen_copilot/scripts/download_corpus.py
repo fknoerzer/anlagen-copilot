@@ -1,8 +1,7 @@
 """Fetches the corpus PDFs declared in corpus.yaml into `raw_dir`.
 
-Sits ahead of the ingestion and outside its transaction: `cli.main()` downloads a
-document before opening one, since a 30-second fetch does no database work and
-should not hold a transaction open.
+The first step of a run: `cli.main()` downloads a document before it opens the
+transaction that ingests it.
 """
 
 import io

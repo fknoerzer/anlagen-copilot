@@ -1,7 +1,7 @@
 """Schema setup for the `chunks` table and the pgvector extension.
 
-Runs once before any ingestion and is idempotent, so a fresh container and a
-database that already holds chunks take the same path.
+Runs before any ingestion: by hand as a module, or from the `db_schema` fixture
+in the tests.
 """
 
 import logging
