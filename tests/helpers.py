@@ -18,7 +18,7 @@ from openai import AuthenticationError, BadRequestError, OpenAI
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
-from anlagen_copilot.corpus import CorpusDocument
+from anlagen_copilot.corpus import Corpus, CorpusDocument
 from anlagen_copilot.eval import EvalQuestion
 
 # For calls that never reach the client: `embed()` patched out, or an argument
@@ -58,6 +58,28 @@ def make_document(**overrides: object) -> CorpusDocument:
     }
     defaults.update(overrides)
     return CorpusDocument.model_validate(defaults)
+
+
+def make_corpus(documents: Sequence[CorpusDocument], raw_dir: Path) -> Corpus:
+    """Wraps documents in the manifest `main()` expects, header included.
+
+    A real `Corpus` rather than a mock: `main()` reaches through
+    `corpus.corpus.raw_dir`, and a mock answers that nesting however the model
+    is renamed underneath it. `cross_references` stays empty — nothing in the
+    ingestion path reads it.
+    """
+    return Corpus.model_validate(
+        {
+            "corpus": {
+                "name": "Testkorpus",
+                "language": "de",
+                "description": "Korpus für die Tests",
+                "raw_dir": raw_dir,
+            },
+            "documents": list(documents),
+            "cross_references": [],
+        }
+    )
 
 
 def make_pdf_bytes(pages: int, *, password: str | None = None) -> bytes:
