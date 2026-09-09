@@ -55,9 +55,12 @@ class CorpusMeta(BaseModel):
 class CorpusDocument(BaseModel):
     """One document of the reference corpus, as declared in data/raw/corpus.yaml.
 
-    Single source of truth for ingestion (per-chunk metadata), retrieval
-    filters (doc_type, domain), citations (title) and provenance (url, edition,
-    retrieved).
+    Single source of truth for ingestion (per-chunk metadata), citations
+    (title) and provenance (url, edition, retrieved).
+
+    `doc_type` and `domain` are declared in the manifest and read by no code
+    path: they record what the corpus deliberately spans, and are the fields a
+    retrieval filter would be built on.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
