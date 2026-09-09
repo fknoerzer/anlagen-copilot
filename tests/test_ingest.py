@@ -138,11 +138,10 @@ def test_ingest_document_writes_one_row_per_usable_page(
 def test_ingest_document_aborts_when_no_page_carries_text(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A scan-only manual ends the document before the table is touched.
+    """A scan-only manual is dropped before any statement runs.
 
-    `make_pdf()` writes pages that extract to `""`, so `usable` is empty — the
-    guard ahead of the `DELETE`, which is why not a single statement runs. The
-    embedding mock would raise if it were reached; it never is.
+    `make_pdf()` writes pages that extract to `""`, so the guard ahead of the
+    `DELETE` hits. The embedding mock raises if it is reached; it is not.
     """
     monkeypatch.setattr(ingest, "embed", Mock(side_effect=AssertionError("must not embed")))
     make_pdf(tmp_path / "doc.pdf", pages=2)
@@ -158,16 +157,11 @@ def test_ingest_document_aborts_when_no_page_carries_text(
 def test_ingest_document_aborts_when_every_page_is_rejected(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A document that keeps no page fails; it does not pass as an empty success.
+    """A document that keeps no page fails rather than passing as an empty success.
 
-    Pages with text that the model turns down — the other reason to give up,
-    and a different message from the test above, so a log says which of the two
-    happened. Both would match "no page with extractable text"; only one of
-    them means it.
-
-    The `DELETE` has run by then and the mock sees it. Taking it back is the
-    caller's transaction, not this function — what must not appear is an
-    INSERT.
+    Its own message: the guard above would match "no page with extractable
+    text" too, and only one of the two means it. The `DELETE` has run by then
+    and the mock sees it — taking it back is the caller's transaction.
     """
     monkeypatch.setattr(ingest, "embed", Mock(side_effect=REJECTED))
     make_text_pdf(tmp_path / "doc.pdf", ["erste Seite", "zweite Seite"])

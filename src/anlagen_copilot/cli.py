@@ -37,9 +37,17 @@ def main() -> None:
     run goes on. Anything else (a bad API key, a connection failure) would hit
     every remaining document just the same and is left to end the run.
 
+    Skipped and incomplete are counted apart. A skipped document did not get
+    through: missing from the index on a first run, still holding its earlier
+    chunks on a rerun, since the `DELETE` rolls back with the transaction. An
+    incomplete one is in the index and stays, minus the rejected pages. Same
+    exit code, different repair — hence two lists and two log lines.
+
     Raises:
-        SystemExit: Code 1 if any document was skipped, so that a partial run
-            is not mistaken for a complete one by CI or by a later step.
+        SystemExit: Code 1 if any document was skipped or came out incomplete,
+            so that a partial run is not mistaken for a complete one by CI or
+            by a later step. Both lists are logged first; exiting on the one
+            would hide the other.
     """
     setup_logging()
     corpus = load_corpus()
@@ -52,21 +60,37 @@ def main() -> None:
     client = OpenAI(api_key=get_settings().openai_api_key.get_secret_value())
     check_embedding_config(client)
     skipped_documents = []
+    incomplete_documents = []
     with get_connection() as conn:
         for doc in corpus.documents:
             try:
                 download_document(doc, raw_path)
                 with conn.transaction():
-                    ingest_document(client, doc, conn, raw_path)
+                    rejected = ingest_document(client, doc, conn, raw_path)
             except DocumentError:
                 logger.exception("%s: skipped", doc.id)
                 skipped_documents.append(doc.id)
+            else:
+                if rejected:
+                    incomplete_documents.append((doc.id, rejected))
     logger.info(
-        "Ingestion finished: %d documents processed",
-        len(corpus.documents) - len(skipped_documents),
+        "Ingestion finished: %d of %d documents complete, %d incomplete, %d skipped",
+        len(corpus.documents) - len(skipped_documents) - len(incomplete_documents),
+        len(corpus.documents),
+        len(incomplete_documents),
+        len(skipped_documents),
     )
     if skipped_documents:
         logger.warning(
             "%d documents skipped: %s", len(skipped_documents), ", ".join(skipped_documents)
         )
+
+    if incomplete_documents:
+        logger.warning(
+            "%d documents incomplete: %s",
+            len(incomplete_documents),
+            ", ".join(f"{doc_id} (-{rejected} pages)" for doc_id, rejected in incomplete_documents),
+        )
+
+    if skipped_documents or incomplete_documents:
         raise SystemExit(1)

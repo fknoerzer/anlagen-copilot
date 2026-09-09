@@ -93,7 +93,7 @@ def ingest_document(
     document: CorpusDocument,
     conn: Connection,
     raw_dir: Path,
-) -> None:
+) -> int:
     """Embeds one document page by page and writes the chunks to the database.
 
     One page is one chunk. That is a deliberate baseline for the naive
@@ -105,10 +105,9 @@ def ingest_document(
     Two kinds of page never reach the index, each counted in a warning instead
     of ending the document: pages without extractable text (scans, pure
     graphics) and pages the embedding model rejects — practically always the
-    token limit on a dense table page. Unless it is every page: a document that
-    keeps nothing is a failure, not an empty success. The two say so in
-    different words, because they call for different repairs — an OCR pass on
-    one side, a smaller chunk on the other.
+    token limit on a dense table page. Losing every page is a failure, not an
+    empty success — with a message per cause, since an OCR pass and a smaller
+    chunk are different repairs.
 
     A rejection may be read as a statement about that one page because
     `check_embedding_config()` has already ruled out the alternative: a 400 that
@@ -129,12 +128,17 @@ def ingest_document(
     `DELETE` and the `INSERT`s together — a document that fails midway is left
     as it was, not emptied.
 
+    Returns:
+        The number of pages the embedding model rejected; zero when every
+        extractable page reached the index. Pages without text stay out of the
+        count — they read the same on every run, a rejection depends on the
+        strategy. What the loss means for the run is `main()`'s call.
+
     Raises:
         DocumentError: From `extract_pages()`, when the PDF is unreadable or
-            will not open with an empty password; from here, when no page
-            carries extractable text and when every page that does is rejected.
-            A single rejected page is skipped; everything else propagates
-            unwrapped and ends the run.
+            will not open with an empty password; from here, when no page has
+            extractable text or every page is rejected. Everything else
+            propagates unwrapped and ends the run.
     """
     pages = extract_pages(document, raw_dir)
     usable = [(page_number, text) for page_number, text in pages if text.strip()]
@@ -147,12 +151,12 @@ def ingest_document(
             len(pages),
         )
 
+    if not usable:
+        raise DocumentError(f"{document.id}: no page with extractable text")
+
     logger.info("%s: starting to embed %d pages", document.id, len(usable))
 
     strategy = get_settings().ingest_strategy
-
-    if not usable:
-        raise DocumentError(f"{document.id}: no page with extractable text")
 
     conn.execute(
         """
@@ -214,3 +218,5 @@ def ingest_document(
         len(usable) - rejected,
         len(pages),
     )
+
+    return rejected
