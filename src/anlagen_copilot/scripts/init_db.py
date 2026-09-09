@@ -1,3 +1,9 @@
+"""Schema setup for the `chunks` table and the pgvector extension.
+
+Runs once before any ingestion and is idempotent, so a fresh container and a
+database that already holds chunks take the same path.
+"""
+
 import logging
 
 from anlagen_copilot.db import get_connection
@@ -8,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def _statements(dimensions: int) -> tuple[str, ...]:
-    """Builds the DDL statements for the given embedding dimension.
+    """Build the DDL statements for the given embedding dimension.
 
     Deliberately a function rather than a module constant: `dimensions` comes
     from the settings, and those are meant to be built on use, not when this
@@ -40,7 +46,7 @@ def _statements(dimensions: int) -> tuple[str, ...]:
 
 
 def init_db() -> None:
-    """Enables the pgvector extension and creates the chunks table.
+    """Enable the pgvector extension and create the chunks table.
 
     Idempotent (IF NOT EXISTS throughout) — safe to run repeatedly, e.g. after
     a fresh `docker compose up -d`.

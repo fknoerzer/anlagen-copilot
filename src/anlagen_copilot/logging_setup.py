@@ -16,7 +16,7 @@ _NOISY_LIBRARIES = ("httpx", "httpcore", "openai")
 
 
 def setup_logging() -> None:
-    """Configures root logging for one entry point.
+    """Configure root logging for one entry point.
 
     Belongs in entry points only, never in library modules: the configuration
     takes effect process-wide, and a mere import should not force it on anyone.

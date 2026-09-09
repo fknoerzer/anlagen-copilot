@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def embed(client: OpenAI, text: str) -> list[float]:
-    """Embeds one text and returns the vector.
+    """Embed one text and return the vector.
 
     Catches nothing on purpose. How far a failure reaches is something only the
     caller can know: here a text is a text, and whether losing it is bearable
@@ -41,7 +41,7 @@ def embed(client: OpenAI, text: str) -> list[float]:
 
 
 def check_embedding_config(client: OpenAI) -> None:
-    """Verifies model, dimensions and API key with a single embedding call.
+    """Verify model, dimensions and API key with a single embedding call.
 
     Runs once before the ingestion loop, so a misconfiguration ends the run in a
     second instead of having to be inferred from a pattern of rejected pages.

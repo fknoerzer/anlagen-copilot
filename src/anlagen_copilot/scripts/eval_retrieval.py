@@ -59,7 +59,7 @@ class EvalRun(BaseModel):
 
 
 def _current_commit() -> str | None:
-    """Short commit hash, or None outside a repository — never fatal.
+    """Return the short commit hash, or None outside a repository.
 
     A missing hash makes a run harder to place later; failing the run over it
     would be worse.
@@ -74,7 +74,7 @@ def _current_commit() -> str | None:
 
 
 def _recall(results: list[QuestionResult]) -> float:
-    """Found expected sources over all expected sources, 0.0 if none are expected."""
+    """Return the found expected sources over all expected, 0.0 if none at all."""
     expected_total = sum(r.expected for r in results)
     if not expected_total:
         return 0.0
@@ -82,7 +82,7 @@ def _recall(results: list[QuestionResult]) -> float:
 
 
 def _append_run(run: EvalRun, path: Path) -> None:
-    """Appends one run as a single JSON line.
+    """Append one run as a single JSON line.
 
     One record per line is the whole point of the format, so the JSON stays
     unindented: a pretty-printed record would break every reader that goes line
@@ -96,6 +96,14 @@ def _append_run(run: EvalRun, path: Path) -> None:
 def run_retrieval(
     strategy: Strategy = "naive", *, k: int = 5, runs_path: Path = DEFAULT_EVAL_RUNS_PATH
 ) -> EvalRun:
+    """Run every eval question through retrieval and append the outcome to `runs_path`.
+
+    One connection for the whole set: the questions are independent, and opening
+    one per question would measure the connection pool rather than the retrieval.
+
+    The run is returned as well as appended, so a caller can assert on it without
+    reading the file back.
+    """
     eval_set = load_eval()
     client = OpenAI(api_key=get_settings().openai_api_key.get_secret_value())
     results: list[QuestionResult] = []
@@ -161,7 +169,7 @@ def run_retrieval(
 
 
 def _log_summary(results: list[QuestionResult], strategy: Strategy, k: int) -> None:
-    """Aggregates the per-question outcomes into the numbers worth comparing.
+    """Aggregate the per-question outcomes into the numbers worth comparing.
 
     Recall and hit rate answer different questions and stay apart: recall gives
     partial credit, so a multi-hop question with one of two sources found counts

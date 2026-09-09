@@ -1,3 +1,9 @@
+"""Postgres connections for every part of the pipeline.
+
+The one place a DSN becomes a connection, so ingestion, retrieval and schema
+setup cannot drift apart in how they connect or which types they register.
+"""
+
 import logging
 
 import psycopg
@@ -10,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def _target(dsn: PostgresDsn) -> str:
-    """Describes the connection target without credentials, for log messages.
+    """Describe the connection target without credentials, for log messages.
 
     `str(dsn)` carries user and password in plain text and must therefore never
     reach the log — not even at DEBUG: log files outlive the session that
@@ -21,7 +27,14 @@ def _target(dsn: PostgresDsn) -> str:
 
 
 def get_connection(register_types: bool = True) -> psycopg.Connection:
-    """Opens a new connection to the Postgres database."""
+    """Open a new connection to the Postgres database.
+
+    Args:
+        register_types: Whether to register the pgvector adapters. `False` is
+            for callers that have to connect before the extension exists —
+            `init_db()` and the probe behind the test fixtures — where
+            registering would fail.
+    """
     dsn = get_settings().postgres_dsn
     logger.debug("Connecting to %s (register_types=%s)", _target(dsn), register_types)
     conn = psycopg.connect(str(dsn))

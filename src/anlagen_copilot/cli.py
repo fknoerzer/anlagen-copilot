@@ -1,3 +1,10 @@
+"""Entry point of the ingestion run: manifest in, populated `chunks` table out.
+
+Owns the loop over the corpus and the transaction boundary around each document.
+The per-document work belongs to `ingest_document()`; what is left here is the
+bookkeeping over the run as a whole.
+"""
+
 import logging
 
 from openai import OpenAI
@@ -15,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    """Runs the ingestion end to end: manifest, download, embedding, database.
+    """Run the ingestion end to end: manifest, download, embedding, database.
 
     Entry point for both `anlagen-copilot` and `python -m anlagen_copilot`.
 

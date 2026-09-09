@@ -1,3 +1,10 @@
+"""The exception that carries the project's one failure distinction.
+
+Separates what concerns a single document from what concerns the whole run — the
+line the ingestion loop in `cli.main()` branches on.
+"""
+
+
 class DocumentError(Exception):
     """An error confined to exactly one document — the run can carry on.
 

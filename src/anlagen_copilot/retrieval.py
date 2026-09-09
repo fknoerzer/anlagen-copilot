@@ -47,7 +47,7 @@ class Source(BaseModel):
 def retrieve(
     client: OpenAI, text: str, conn: Connection, strategy: Strategy, *, k: int = 5
 ) -> list[Source]:
-    """Returns the `k` chunks closest to `text`, best match first.
+    """Return the `k` chunks closest to `text`, best match first.
 
     `score` is a similarity, not a distance: 1.0 is identical, and higher is
     better. `<=>` is the only operator that may be used here — the HNSW index is

@@ -57,7 +57,7 @@ class EvalQuestion(BaseModel):
 
     @model_validator(mode="after")
     def check_unanswerable_consistency(self) -> Self:
-        """Enforces: unanswerable questions empty, every other one filled.
+        """Require unanswerable questions to be empty and every other one filled.
 
         Without this check an unanswerable question could carry sources by
         accident (which are then never reachable), or an answerable one could
@@ -85,7 +85,7 @@ class EvalSet(BaseModel):
 
     @model_validator(mode="after")
     def check_document_id(self) -> Self:
-        """Checks that every referenced document_id exists in corpus.yaml.
+        """Check that every referenced document_id exists in corpus.yaml.
 
         Runs once for the whole set rather than per question, so corpus.yaml is
         not loaded repeatedly. Catches the typos that would otherwise run into
@@ -110,17 +110,14 @@ class EvalSet(BaseModel):
 
 
 def load_eval(path: Path = DEFAULT_EVALSET_PATH) -> EvalSet:
-    """Loads and validates the eval set manifest.
+    """Load and validate the eval set manifest.
 
-    Args:
-        path: Path to the manifest file. Defaults to data/eval_set.yaml,
-            resolved against the project root, not the working directory.
-
-    Returns:
-        EvalSet: The validated eval set.
+    The default path resolves against the project root rather than the working
+    directory, so a run finds the manifest from wherever it is started.
 
     Raises:
-        FileNotFoundError: When the file does not exist.
+        FileNotFoundError: When the file does not exist — raised here instead
+            of left to `read_text()`, so the message names the manifest.
         ValidationError: When the manifest is structurally invalid, or
             inconsistent with corpus.yaml, e.g. an unknown document_id.
     """

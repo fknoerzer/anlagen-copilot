@@ -43,7 +43,7 @@ class CorpusMeta(BaseModel):
     @field_validator("raw_dir")
     @classmethod
     def resolve_raw_dir(cls, p: Path) -> Path:
-        """Resolves raw_dir against the project root when given as relative.
+        """Resolve raw_dir against the project root when given as relative.
 
         Without this, raw_dir would depend on the working directory at call
         time instead of on where the manifest itself sits — running main() from
@@ -93,7 +93,7 @@ class CorpusDocument(BaseModel):
 
     @model_validator(mode="after")
     def check_excerpt_pages(self) -> Self:
-        """Checks a page excerpt against the document's total extent.
+        """Check a page excerpt against the document's total extent.
 
         Only runs when `excerpt_pages` is set. A faulty range would otherwise
         lead to wrong citations.
@@ -142,17 +142,14 @@ class Corpus(BaseModel):
 
 
 def load_corpus(path: Path = DEFAULT_CORPUS_PATH) -> Corpus:
-    """Loads and validates the corpus manifest.
+    """Load and validate the corpus manifest.
 
-    Args:
-        path: Path to the manifest file. Defaults to data/raw/corpus.yaml,
-            resolved against the project root, not the working directory.
-
-    Returns:
-        Corpus: The validated manifest.
+    The default path resolves against the project root rather than the working
+    directory, so a run finds the manifest from wherever it is started.
 
     Raises:
-        FileNotFoundError: When the file does not exist.
+        FileNotFoundError: When the file does not exist — raised here instead
+            of left to `read_text()`, so the message names the manifest.
         ValidationError: When the manifest is structurally invalid.
     """
     if not path.is_file():

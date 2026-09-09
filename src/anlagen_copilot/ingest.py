@@ -1,3 +1,10 @@
+"""PDF in, embedded chunks in the `chunks` table out.
+
+The write side of the pipeline, the counterpart to `retrieval.py`.
+`extract_pages()` reads a document, `ingest_document()` embeds and stores it —
+one chunk per page under the naive strategy.
+"""
+
 import logging
 from pathlib import Path
 
@@ -30,7 +37,7 @@ _TEXT_FIXES = ftfy.TextFixerConfig(uncurl_quotes=False)
 
 
 def extract_pages(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, str]]:
-    """Reads a PDF page by page, returning (page number, text) for each page.
+    """Read a PDF page by page, returning (page number, text) for each page.
 
     When `excerpt_pages` is set only that range is read, both bounds inclusive.
     Page numbers stay those of the original PDF and are *not* renumbered from
@@ -47,7 +54,6 @@ def extract_pages(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, st
             loop too: `extract_text()` can fail on a single damaged page, not
             just `PdfReader()`.
     """
-
     path: Path = raw_dir / document.filename
 
     try:
@@ -94,7 +100,7 @@ def ingest_document(
     conn: Connection,
     raw_dir: Path,
 ) -> int:
-    """Embeds one document page by page and writes the chunks to the database.
+    """Embed one document page by page and write the chunks to the database.
 
     One page is one chunk. That is a deliberate baseline for the naive
     strategy, not an oversight: the page is the unit the eval set cites and the

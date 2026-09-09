@@ -95,9 +95,11 @@ questions:
 
 
 def test_load_eval_fails_with_incorrect_unanswerable_question(tmp_path: Path) -> None:
-    """Uses a real document_id on purpose, to hit check_unanswerable_consistency
-    alone instead of tripping check_document_id by accident (see
-    test_load_eval_fails_with_incorrect_source_document_id for that other case).
+    """Reject an unanswerable question that carries sources.
+
+    The document_id is a real one on purpose, so `check_unanswerable_consistency`
+    is what fails rather than `check_document_id` tripping first — that other
+    case is `test_load_eval_fails_with_incorrect_source_document_id`.
     """
     f = tmp_path / "eval_set.yaml"
     f.write_text(

@@ -1,3 +1,10 @@
+"""Fetches the corpus PDFs declared in corpus.yaml into `raw_dir`.
+
+Sits ahead of the ingestion and outside its transaction: `cli.main()` downloads a
+document before opening one, since a 30-second fetch does no database work and
+should not hold a transaction open.
+"""
+
 import io
 import logging
 from importlib.metadata import version
@@ -26,7 +33,7 @@ _HTTP_HEADERS = {
 
 
 def download_document(doc: CorpusDocument, raw_dir: Path) -> None:
-    """Downloads doc.url and stores it as raw_dir/doc.filename.
+    """Download doc.url and store it as raw_dir/doc.filename.
 
     If the target file already exists the download is skipped, so a rerun does
     not fetch everything again. That same existence check is why nothing
@@ -106,7 +113,7 @@ def download_document(doc: CorpusDocument, raw_dir: Path) -> None:
 
 
 def check_pages(number_pages: int, source: Path | BinaryIO, *, label: str) -> None:
-    """Checks that the source is a readable PDF with the page count declared.
+    """Check that the source is a readable PDF with the declared page count.
 
     Catches the cases where a manufacturer edition changed without corpus.yaml
     being updated — wrong page numbers would otherwise end up in citations

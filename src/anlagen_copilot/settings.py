@@ -1,3 +1,9 @@
+"""Runtime configuration for every entry point, read once and cached.
+
+Environment and `.env` are resolved here and nowhere else, so the model name, the
+embedding dimension and the DSN have one source instead of one per caller.
+"""
+
 from functools import lru_cache
 from typing import Literal
 
@@ -51,5 +57,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """Builds the settings on first actual use, not at import time."""
+    """Build the settings on first actual use, not at import time."""
     return Settings()  # type: ignore[call-arg]  # required fields come from env/.env, not kwargs
