@@ -11,7 +11,6 @@ dependencies = [
     "fastapi>=0.140.0",
     "ftfy>=6.3.1",
     "httpx>=0.28.1",
-    "langchain>=1.3.14",
     "openai>=2.48.0",
     "pgvector>=0.5.0",
     "psycopg[binary]>=3.3.4",
@@ -53,10 +52,9 @@ convention = "google"
 "tests/**" = ["D100", "D103", "D104"]
 
 [tool.pytest.ini_options]
-# `--strict-markers` is what gives the registration below any teeth: without it
-# a mistyped `@pytest.mark.integraton` is a warning and the test simply runs
-# unmarked. It does not protect the command line — `-m integraton` deselects
-# everything and `-m "not integraton"` runs everything, both without a word.
+# --strict-markers turns a mistyped @pytest.mark.integraton from a warning into
+# an error. It does not cover the command line: -m integraton silently
+# deselects everything, -m "not integraton" silently runs everything.
 addopts = "--strict-markers"
 markers = ["integration: needs a running Postgres (docker compose up -d)"]
 
@@ -65,8 +63,8 @@ strict = true
 ignore_missing_imports = true
 
 [tool.deptry.per_rule_ignores]
-# anlagen_copilot ist das eigene Package, kein transitives Fremdpaket —
-# deptry erkennt Self-Imports im src-Layout hier fälschlich als DEP003.
+# anlagen_copilot is this project's own package, not a transitive third-party
+# one — deptry misreads self-imports in the src layout as DEP003.
 DEP003 = ["anlagen_copilot"]
-# Bewusst vorab für geplante Arbeit eingetragen, noch nicht verdrahtet.
-DEP002 = ["fastapi", "langchain", "openai", "pgvector"]
+# Declared ahead of the work that will use it, not wired up yet.
+DEP002 = ["fastapi"]
