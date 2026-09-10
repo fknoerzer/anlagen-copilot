@@ -10,6 +10,7 @@ configuration that produced it travels alongside: a recall of 0.5 cannot be
 placed without knowing `k`, the strategy and the embedding model.
 """
 
+import argparse
 import collections
 import logging
 import subprocess
@@ -21,6 +22,7 @@ from pydantic import BaseModel
 
 from anlagen_copilot.db import get_connection
 from anlagen_copilot.eval import load_eval
+from anlagen_copilot.logging_setup import setup_logging
 from anlagen_copilot.paths import DATA_DIR
 from anlagen_copilot.retrieval import retrieve
 from anlagen_copilot.settings import Strategy, get_settings
@@ -224,3 +226,19 @@ def _log_summary(results: list[QuestionResult], strategy: Strategy, k: int) -> N
             min(hit_best),
             "separable" if max(unanswerable_best) < min(hit_best) else "overlapping",
         )
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    # `Strategy` is a type hint, not a runtime check. A mistyped value would
+    # filter on a strategy with no rows, score a recall of 0.0, and fail only
+    # when pydantic builds the `EvalRun` — after all 36 questions have been
+    # embedded and queried.
+    parser.add_argument(
+        "--strategy", default="naive", choices=("naive", "advanced"), help="which index to query"
+    )
+    parser.add_argument("--k", type=int, default=5, help="chunks to retrieve per question")
+    args = parser.parse_args()
+
+    setup_logging()
+    run_retrieval(args.strategy, k=args.k)
