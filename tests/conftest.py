@@ -7,7 +7,7 @@ import pytest
 
 from anlagen_copilot.db import get_connection
 from anlagen_copilot.scripts.init_db import init_db
-from anlagen_copilot.settings import get_settings
+from anlagen_copilot.settings import Settings, get_settings
 
 # Set explicitly instead of read from the local .env: mandatory fields without
 # a default (openai_api_key, anthropic_api_key) would otherwise tie the tests to
@@ -45,6 +45,11 @@ def _test_env() -> Iterator[None]:
     with pytest.MonkeyPatch.context() as mp:
         for key, value in _TEST_ENV.items():
             mp.setenv(key, value)
+        # The variables above cover the mandatory fields; this covers the six that
+        # have defaults, which would otherwise still be read from the local .env —
+        # green here and in CI for different reasons, and red the moment someone
+        # edits their own .env.
+        mp.setitem(Settings.model_config, "env_file", None)
         get_settings.cache_clear()
         yield
     get_settings.cache_clear()
