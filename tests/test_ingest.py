@@ -18,7 +18,7 @@ from pgvector import Vector
 
 from anlagen_copilot import ingest
 from anlagen_copilot.errors import DocumentError
-from anlagen_copilot.ingest import extract_pages, ingest_document
+from anlagen_copilot.ingest import extract_pages, ingest_document, strip_boilerplate
 
 
 def _verbs(conn: MagicMock) -> list[str]:
@@ -105,6 +105,176 @@ def test_extract_pages_rejects_content_that_is_not_a_pdf(tmp_path: Path) -> None
 
     with pytest.raises(DocumentError, match="not readable"):
         extract_pages(doc, tmp_path)
+
+
+def test_strip_boilerplate_removes_a_line_that_appears_on_every_page() -> None:
+    """A header on all ten pages goes, the content under it stays.
+
+    The content lines differ in words, not only in digits: "Inhalt 1" to
+    "Inhalt 10" normalize to one line and would count as boilerplate themselves.
+    """
+    contents = [
+        "Motor",
+        "Bremse",
+        "Getriebe",
+        "Lager",
+        "Welle",
+        "Kupplung",
+        "Dichtung",
+        "Lüfter",
+        "Klemme",
+        "Sensor",
+    ]
+    pages = [
+        (n, f"Betriebsanleitung – Drehstrommotoren\n{text}")
+        for n, text in enumerate(contents, start=1)
+    ]
+
+    result = strip_boilerplate(pages)
+
+    assert result == list(enumerate(contents, start=1))
+
+
+def test_strip_boilerplate_keeps_a_line_below_the_threshold() -> None:
+    """A line on 8 of 10 pages, 80 %, is frequent content and stays.
+
+    Modelled on "Reaktion: KEINE" in the Siemens fault list. A threshold set too
+    low would remove it.
+    """
+    words = [
+        "Motor",
+        "Bremse",
+        "Getriebe",
+        "Lager",
+        "Welle",
+        "Kupplung",
+        "Dichtung",
+        "Lüfter",
+        "Klemme",
+        "Sensor",
+    ]
+    contents = [
+        f"{word}\nReaktion: KEINE" if n <= 8 else word for n, word in enumerate(words, start=1)
+    ]
+
+    pages = [
+        (n, f"Betriebsanleitung – Drehstrommotoren\n{text}")
+        for n, text in enumerate(contents, start=1)
+    ]
+
+    result = strip_boilerplate(pages)
+
+    assert result == list(enumerate(contents, start=1))
+
+
+def test_strip_boilerplate_removes_a_header_missing_from_some_pages() -> None:
+    """A header on 9 of 10 pages, 90 %, still goes.
+
+    Real headers rarely reach every page: sew-katalog-projektierung carries its own
+    on 92 %, siemens-g120c-liste on 89 %. A threshold set too high would keep them.
+    """
+    words = [
+        "Motor",
+        "Bremse",
+        "Getriebe",
+        "Lager",
+        "Welle",
+        "Kupplung",
+        "Dichtung",
+        "Lüfter",
+        "Klemme",
+        "Sensor",
+    ]
+    pages = [
+        (n, f"Betriebsanleitung – Drehstrommotoren\n{word}" if n <= 9 else word)
+        for n, word in enumerate(words, start=1)
+    ]
+
+    result = strip_boilerplate(pages)
+
+    assert result == list(enumerate(words, start=1))
+
+
+def test_strip_boilerplate_counts_a_line_once_per_page() -> None:
+    """A line repeated on few pages stays, however often it repeats there.
+
+    Ten times on each of 2 of 10 pages is 20 occurrences but 20 % of the pages.
+    Counted per occurrence instead of per page, it would clear the threshold.
+    """
+    words = [
+        "Motor",
+        "Bremse",
+        "Getriebe",
+        "Lager",
+        "Welle",
+        "Kupplung",
+        "Dichtung",
+        "Lüfter",
+        "Klemme",
+        "Sensor",
+    ]
+    contents = [
+        word + "\nReaktion: KEINE" * 10 if n <= 2 else word for n, word in enumerate(words, start=1)
+    ]
+    pages = list(enumerate(contents, start=1))
+
+    result = strip_boilerplate(pages)
+
+    assert result == pages
+
+
+def test_strip_boilerplate_removes_a_header_whose_page_number_changes_sides() -> None:
+    """A header numbered left on even pages and right on odd ones counts as one line.
+
+    Each raw variant is unique; only the normalization makes them one line on 100 %.
+    """
+    words = [
+        "Motor",
+        "Bremse",
+        "Getriebe",
+        "Lager",
+        "Welle",
+        "Kupplung",
+        "Dichtung",
+        "Lüfter",
+        "Klemme",
+        "Sensor",
+    ]
+
+    pages = [
+        (
+            n,
+            f"{n}Betriebsanleitung – Drehstrommotoren\n{word}"
+            if n % 2 == 0
+            else f"Betriebsanleitung – Drehstrommotoren {n}\n{word}",
+        )
+        for n, word in enumerate(words, start=1)
+    ]
+
+    result = strip_boilerplate(pages)
+
+    assert result == list(enumerate(words, start=1))
+
+
+def test_strip_boilerplate_leaves_a_short_document_alone() -> None:
+    """Below `_BOILERPLATE_MIN_PAGES` nothing is removed, not even a line on every page.
+
+    On three pages, "all of them" is a count a single chapter title reaches by chance.
+    """
+    words = [
+        "Motor",
+        "Bremse",
+        "Getriebe",
+    ]
+
+    pages = [
+        (n, f"Betriebsanleitung – Drehstrommotoren\n{word}")
+        for n, word in enumerate(words, start=1)
+    ]
+
+    result = strip_boilerplate(pages)
+
+    assert result == pages
 
 
 def test_ingest_document_writes_one_row_per_usable_page(
