@@ -6,6 +6,8 @@ one chunk per page under the naive strategy.
 """
 
 import logging
+import re
+from collections import Counter
 from pathlib import Path
 
 import ftfy
@@ -34,6 +36,16 @@ _EXCERPT_HINT_PAGES = 500
 # noise in an embedding. `uncurl_quotes` stays off: flattening German „…" to
 # "…" is typography, not repair, and would touch 9 unaffected chunks.
 _TEXT_FIXES = ftfy.TextFixerConfig(uncurl_quotes=False)
+
+# 0.85 sits in the gap measured across the corpus: every running header or footer
+# turns up on at least 89 % of its document's pages, no content line on more than
+# 82 % — the table heads in sew-schmierstoffe, "Reaktion: KEINE" in the fault list.
+# The gap is seven points wide and rests on one 34-page document.
+_BOILERPLATE_MIN_RATIO = 0.85
+
+# Below ten pages, "85 % of them" means eight or nine pages, a count a single
+# chapter title reaches by chance. The smallest document in the corpus has 34.
+_BOILERPLATE_MIN_PAGES = 10
 
 
 def extract_pages(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, str]]:
@@ -92,6 +104,64 @@ def extract_pages(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, st
         raise DocumentError(f"{document.id}: PDF not readable") from exc
 
     return pages
+
+
+def _normalize_line(line: str) -> str:
+    """Reduce a line to the form a running header or footer shares across pages.
+
+    Whitespace is collapsed first, because pypdf often leaves it trailing. Digits
+    then become `#`, so "Seite 3/34" and "Seite 4/34" count as one line. Finally a
+    page number at either end goes, so the even and odd variants of a header, with
+    the number once on the left and once on the right, count as one as well.
+
+    The trailing pattern takes whitespace only, never dots: allowing dots there
+    would eat the ".." of "SPIROPLAN® W.." on the pages that carry a number after
+    it, and split that header of sew-getriebe-ba into two variants again.
+    """
+    line = " ".join(line.split())
+    line = re.sub(r"\d+", "#", line)
+    return re.sub(r"^#\s*|\s*#$", "", line)
+
+
+def strip_boilerplate(pages: list[tuple[int, str]]) -> list[tuple[int, str]]:
+    """Remove the lines that repeat on nearly every page of one document.
+
+    A running header or footer sits in every page's embedding as a constant share
+    and pulls all similarities of a document into one narrow band. A line counts
+    as boilerplate when its normalized form appears on at least
+    `_BOILERPLATE_MIN_RATIO` of the pages. It is counted once per page, so a table
+    repeating a row cannot push itself over the threshold.
+
+    Frequency decides, position does not: pypdf returns the content stream's
+    order, not the visual one, and the header of sew-getriebe-ba lands among the
+    first or last three lines on only 6 of the 229 pages that carry it.
+
+    The normalized form decides, the original line is what is kept or dropped, so
+    the index keeps its real page and part numbers. Lines that normalize to
+    nothing are never counted: blank lines, and lines that are only a number.
+    That leaves bare page numbers in place, but also the table values pypdf puts
+    on lines of their own, which matter more.
+
+    Returns:
+        The pages in their original order and numbering; unchanged when the
+        document has fewer than `_BOILERPLATE_MIN_PAGES` pages.
+    """
+    if len(pages) < _BOILERPLATE_MIN_PAGES:
+        return pages
+
+    counts: Counter[str] = Counter()
+    for _, text in pages:
+        counts.update({norm for line in text.split("\n") if (norm := _normalize_line(line))})
+
+    boilerplate = {
+        norm for norm, seen in counts.items() if seen / len(pages) >= _BOILERPLATE_MIN_RATIO
+    }
+
+    stripped: list[tuple[int, str]] = []
+    for page_number, text in pages:
+        kept = [line for line in text.split("\n") if _normalize_line(line) not in boilerplate]
+        stripped.append((page_number, "\n".join(kept)))
+    return stripped
 
 
 def ingest_document(
