@@ -117,10 +117,16 @@ def _normalize_line(line: str) -> str:
     The trailing pattern takes whitespace only, never dots: allowing dots there
     would eat the ".." of "SPIROPLAN® W.." on the pages that carry a number after
     it, and split that header of sew-getriebe-ba into two variants again.
+
+    A form without a letter comes back empty. Numbers, decimals, ranges and
+    references share no text a header could carry, but they are table values:
+    "-20 +40" stands on 62 % of the pages of sew-schmierstoffe, "[17]" on 28 % of
+    sew-motoren-drn.
     """
     line = " ".join(line.split())
     line = re.sub(r"\d+", "#", line)
-    return re.sub(r"^#\s*|\s*#$", "", line)
+    line = re.sub(r"^#\s*|\s*#$", "", line)
+    return line if any(ch.isalpha() for ch in line) else ""
 
 
 def strip_boilerplate(pages: list[tuple[int, str]]) -> list[tuple[int, str]]:
@@ -138,9 +144,9 @@ def strip_boilerplate(pages: list[tuple[int, str]]) -> list[tuple[int, str]]:
 
     The normalized form decides, the original line is what is kept or dropped, so
     the index keeps its real page and part numbers. Lines that normalize to
-    nothing are never counted: blank lines, and lines that are only a number.
-    That leaves bare page numbers in place, but also the table values pypdf puts
-    on lines of their own, which matter more.
+    nothing are never counted: blank lines, and lines without a letter. That
+    leaves bare page and document numbers in place, but also the table values
+    pypdf puts on lines of their own, which matter more.
 
     Returns:
         The pages in their original order and numbering; unchanged when the
@@ -215,7 +221,7 @@ def ingest_document(
             extractable text or every page is rejected. Everything else
             propagates unwrapped and ends the run.
     """
-    pages = extract_pages(document, raw_dir)
+    pages = strip_boilerplate(extract_pages(document, raw_dir))
     usable = [(page_number, text) for page_number, text in pages if text.strip()]
     skipped = len(pages) - len(usable)
     if skipped:
