@@ -223,6 +223,34 @@ def test_strip_boilerplate_counts_a_line_once_per_page() -> None:
     assert result == pages
 
 
+def test_strip_boilerplate_keeps_a_line_without_letters() -> None:
+    """A line of numbers stays even on every page; it is a table value, not a header.
+
+    "-20 +40" normalizes to "-# +", which has no letter and is never counted.
+    Temperature ranges like it stand on 62 % of the pages of sew-schmierstoffe.
+    """
+    words = [
+        "Motor",
+        "Bremse",
+        "Getriebe",
+        "Lager",
+        "Welle",
+        "Kupplung",
+        "Dichtung",
+        "Lüfter",
+        "Klemme",
+        "Sensor",
+    ]
+    pages = [
+        (n, f"Betriebsanleitung – Drehstrommotoren\n{word}\n-20 +40")
+        for n, word in enumerate(words, start=1)
+    ]
+
+    result = strip_boilerplate(pages)
+
+    assert result == [(n, f"{word}\n-20 +40") for n, word in enumerate(words, start=1)]
+
+
 def test_strip_boilerplate_removes_a_header_whose_page_number_changes_sides() -> None:
     """A header numbered left on even pages and right on odd ones counts as one line.
 
@@ -303,6 +331,41 @@ def test_ingest_document_writes_one_row_per_usable_page(
     # The skipped page is counted nowhere else — not in the return value, not
     # in `chunks`, not in the statements above.
     assert was_logged(caplog, logging.WARNING, "skipped 1 of 3 pages"), caplog.text
+
+
+def test_ingest_document_writes_pages_without_their_running_header(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """What reaches the INSERT is the page without its header.
+
+    Ten pages, because below `_BOILERPLATE_MIN_PAGES` stripping leaves a document
+    alone — which is why no other test here would notice the call going missing.
+    `extract_pages` is patched so the pages can carry two lines each.
+    """
+    words = [
+        "Motor",
+        "Bremse",
+        "Getriebe",
+        "Lager",
+        "Welle",
+        "Kupplung",
+        "Dichtung",
+        "Lüfter",
+        "Klemme",
+        "Sensor",
+    ]
+    pages = [
+        (n, f"Betriebsanleitung – Drehstrommotoren\n{word}")
+        for n, word in enumerate(words, start=1)
+    ]
+    monkeypatch.setattr(ingest, "extract_pages", Mock(return_value=pages))
+    monkeypatch.setattr(ingest, "embed", fake_embed)
+    conn = MagicMock()
+
+    ingest_document(NO_CLIENT, make_document(id="test-doc"), conn, tmp_path)
+
+    # The first statement is the DELETE; index 3 of each INSERT is `content`.
+    assert [params[3] for params in _params(conn)[1:]] == words
 
 
 def test_ingest_document_aborts_when_no_page_carries_text(
