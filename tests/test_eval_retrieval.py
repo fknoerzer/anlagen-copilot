@@ -28,6 +28,40 @@ def _raise(exc: Exception) -> object:
     return run
 
 
+def _git(repo: Path, *args: str) -> str:
+    """Runs git in `repo` and returns its trimmed output."""
+    done = subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, check=True)
+    return done.stdout.strip()
+
+
+def _make_repo(tmp_path: Path) -> Path:
+    """Builds a repository with one commit over the paths `_current_commit()` tells apart.
+
+    `src/app.py` stands for code, `data/eval_runs.jsonl` for the record every run
+    appends to. Identity and signing are set per command, so the test does not
+    depend on how git is configured on the machine running it.
+    """
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text('print("code")\n', encoding="utf-8")
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "eval_runs.jsonl").write_text('{"run": 1}\n', encoding="utf-8")
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "add", ".")
+    _git(
+        tmp_path,
+        "-c",
+        "user.name=test",
+        "-c",
+        "user.email=test@example.com",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-qm",
+        "init",
+    )
+    return tmp_path
+
+
 def _make_question_result(**overrides: object) -> QuestionResult:
     """Builds a valid QuestionResult, mandatory fields as placeholders.
 
@@ -112,11 +146,25 @@ def _patch_run_retrieval(
     return retrieve
 
 
-def test_current_commit_returns_the_short_hash(monkeypatch: pytest.MonkeyPatch) -> None:
-    done = subprocess.CompletedProcess(args=[], returncode=0, stdout="27f3503\n")
-    monkeypatch.setattr(subprocess, "run", lambda *a, **k: done)
+def test_current_commit_marks_uncommitted_code_dirty(tmp_path: Path) -> None:
+    """A run on code that is not committed must not pass for the commit below it."""
+    repo = _make_repo(tmp_path)
+    (repo / "src" / "app.py").write_text('print("changed")\n', encoding="utf-8")
 
-    assert _current_commit() == "27f3503"
+    assert _current_commit(repo) == _git(repo, "rev-parse", "--short", "HEAD") + "-dirty"
+
+
+def test_current_commit_ignores_an_appended_eval_run(tmp_path: Path) -> None:
+    """The record of one run does not mark the next run dirty.
+
+    Running k=5 and k=20 back to back is the usual case; flagging the second would
+    make the marker a false alarm exactly where it should be trusted.
+    """
+    repo = _make_repo(tmp_path)
+    with (repo / "data" / "eval_runs.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write('{"run": 2}\n')
+
+    assert _current_commit(repo) == _git(repo, "rev-parse", "--short", "HEAD")
 
 
 def test_current_commit_is_none_outside_a_repository(monkeypatch: pytest.MonkeyPatch) -> None:

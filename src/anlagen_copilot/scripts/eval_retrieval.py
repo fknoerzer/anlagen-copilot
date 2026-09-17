@@ -23,13 +23,18 @@ from pydantic import BaseModel
 from anlagen_copilot.db import get_connection
 from anlagen_copilot.eval import load_eval
 from anlagen_copilot.logging_setup import setup_logging
-from anlagen_copilot.paths import DATA_DIR
+from anlagen_copilot.paths import DATA_DIR, PROJECT_ROOT
 from anlagen_copilot.retrieval import retrieve_global, retrieve_per_document
 from anlagen_copilot.settings import Strategy, get_settings
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_EVAL_RUNS_PATH = DATA_DIR / "eval_runs.jsonl"
+
+# What a run's numbers depend on. `data/eval_runs.jsonl` stays out on purpose:
+# every run appends to it, so the second of two back-to-back runs would be marked
+# dirty although only the record of the first had changed.
+_CODE_PATHS = ("src", "pyproject.toml", "uv.lock")
 
 
 class QuestionResult(BaseModel):
@@ -61,19 +66,38 @@ class EvalRun(BaseModel):
     results: list[QuestionResult]
 
 
-def _current_commit() -> str | None:
-    """Return the short commit hash, or None outside a repository.
+def _current_commit(repo: Path = PROJECT_ROOT) -> str | None:
+    """Return the short commit hash, marked `-dirty` over uncommitted code.
 
-    A missing hash makes a run harder to place later; failing the run over it
-    would be worse.
+    A hash alone would claim a run for a commit that did not contain the code it
+    ran. Only `_CODE_PATHS` count, and `status` rather than `diff`, so that a new
+    module not yet added counts as well.
+
+    `repo` rather than the working directory, because the paths are relative to
+    it. None outside a repository: a missing hash makes a run harder to place
+    later; failing the run over it would be worse.
     """
     try:
-        done = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True
+        head = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        status = subprocess.run(
+            ["git", "status", "--porcelain", "--", *_CODE_PATHS],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=True,
         )
     except (subprocess.CalledProcessError, OSError):
         return None
-    return done.stdout.strip() or None
+    commit = head.stdout.strip()
+    if not commit:
+        return None
+    return f"{commit}-dirty" if status.stdout.strip() else commit
 
 
 def _recall(results: list[QuestionResult]) -> float:
