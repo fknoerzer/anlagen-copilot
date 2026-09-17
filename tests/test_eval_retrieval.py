@@ -90,11 +90,14 @@ def _make_source(**overrides: object) -> Source:
 def _patch_run_retrieval(
     monkeypatch: pytest.MonkeyPatch, questions: list[EvalQuestion], results: list[list[Source]]
 ) -> Mock:
-    """Replaces everything `run_retrieval()` reaches outside itself; returns the `retrieve` mock.
+    """Replaces everything `run_retrieval()` reaches outside itself; returns the search mock.
 
-    `results` holds one list per question, in order: `retrieve()` is called once
-    for each, and `side_effect` hands them out in turn. A list of the wrong length
+    `results` holds one list per question, in order: the search is called once for
+    each, and `side_effect` hands them out in turn. A list of the wrong length
     fails with StopIteration instead of reusing a result.
+
+    Both retrieval functions get the same mock, so a test picks the path through
+    `per_document` and reads the calls off one object either way.
 
     Settings stay real — `conftest` provides them, and `run_retrieval()` records
     them in the run, which a mock would only echo back.
@@ -104,7 +107,8 @@ def _patch_run_retrieval(
     monkeypatch.setattr(eval_retrieval, "OpenAI", Mock())
     monkeypatch.setattr(eval_retrieval, "get_connection", MagicMock())
     retrieve = Mock(side_effect=results)
-    monkeypatch.setattr(eval_retrieval, "retrieve", retrieve)
+    monkeypatch.setattr(eval_retrieval, "retrieve_global", retrieve)
+    monkeypatch.setattr(eval_retrieval, "retrieve_per_document", retrieve)
     return retrieve
 
 
@@ -235,7 +239,7 @@ def test_run_retrieval_leaves_the_recall_alone_for_an_unanswerable_question(
 def test_run_retrieval_searches_with_the_k_and_strategy_it_records(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`k` and `strategy` appear twice: in the `retrieve()` call and in the run.
+    """`k` and `strategy` appear twice: in the search call and in the run.
 
     Dropped from the call, every run would search with the defaults while still
     recording the arguments — a measurement series that misstates its own

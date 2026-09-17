@@ -24,7 +24,7 @@ from anlagen_copilot.db import get_connection
 from anlagen_copilot.eval import load_eval
 from anlagen_copilot.logging_setup import setup_logging
 from anlagen_copilot.paths import DATA_DIR
-from anlagen_copilot.retrieval import retrieve
+from anlagen_copilot.retrieval import retrieve_global, retrieve_per_document
 from anlagen_copilot.settings import Strategy, get_settings
 
 logger = logging.getLogger(__name__)
@@ -54,6 +54,7 @@ class EvalRun(BaseModel):
     commit: str | None
     strategy: Strategy
     k: int
+    per_document: int | None = None
     embedding_model: str
     embedding_dimensions: int
     recall: float
@@ -96,12 +97,21 @@ def _append_run(run: EvalRun, path: Path) -> None:
 
 
 def run_retrieval(
-    strategy: Strategy = "naive", *, k: int = 5, runs_path: Path = DEFAULT_EVAL_RUNS_PATH
+    strategy: Strategy = "naive",
+    *,
+    k: int = 5,
+    per_document: int | None = None,
+    runs_path: Path = DEFAULT_EVAL_RUNS_PATH,
 ) -> EvalRun:
     """Run every eval question through retrieval and append the outcome to `runs_path`.
 
     One connection for the whole set: the questions are independent, and opening
     one per question would measure the connection pool rather than the retrieval.
+
+    `per_document` picks the search: `None` measures `retrieve_global()`, the path
+    the earlier runs were recorded on; a number caps each document through
+    `retrieve_per_document()`. It is written into the run either way, so the two
+    never mix in the series.
 
     The run is returned as well as appended, so a caller can assert on it without
     reading the file back.
@@ -112,7 +122,12 @@ def run_retrieval(
 
     with get_connection() as conn:
         for question in eval_set.questions:
-            sources = retrieve(client, question.question, conn, strategy, k=k)
+            if per_document is not None:
+                sources = retrieve_per_document(
+                    client, question.question, conn, strategy, k=k, per_document=per_document
+                )
+            else:
+                sources = retrieve_global(client, question.question, conn, strategy, k=k)
 
             for rank, s in enumerate(sources, start=1):
                 logger.debug(
@@ -153,7 +168,7 @@ def run_retrieval(
                     best,
                 )
 
-    _log_summary(results, strategy, k)
+    _log_summary(results, strategy, k, per_document)
 
     settings = get_settings()
     run = EvalRun(
@@ -161,6 +176,7 @@ def run_retrieval(
         commit=_current_commit(),
         strategy=strategy,
         k=k,
+        per_document=per_document,
         embedding_model=settings.embedding_model,
         embedding_dimensions=settings.embedding_dimensions,
         recall=_recall(results),
@@ -170,7 +186,9 @@ def run_retrieval(
     return run
 
 
-def _log_summary(results: list[QuestionResult], strategy: Strategy, k: int) -> None:
+def _log_summary(
+    results: list[QuestionResult], strategy: Strategy, k: int, per_document: int | None
+) -> None:
     """Aggregate the per-question outcomes into the numbers worth comparing.
 
     Recall and hit rate answer different questions and stay apart: recall gives
@@ -185,7 +203,11 @@ def _log_summary(results: list[QuestionResult], strategy: Strategy, k: int) -> N
             per_category[r.category].append(r)
 
     logger.info(
-        "--- retrieval over %d questions, strategy '%s', k=%d ---", len(results), strategy, k
+        "--- retrieval over %d questions, strategy '%s', k=%d, per_document=%s ---",
+        len(results),
+        strategy,
+        k,
+        per_document,
     )
 
     for category in sorted(per_category):
@@ -238,7 +260,13 @@ if __name__ == "__main__":
         "--strategy", default="naive", choices=("naive", "advanced"), help="which index to query"
     )
     parser.add_argument("--k", type=int, default=5, help="chunks to retrieve per question")
+    parser.add_argument(
+        "--per-document",
+        type=int,
+        metavar="N",
+        help="chunks to keep per document, unlimited when unset",
+    )
     args = parser.parse_args()
 
     setup_logging()
-    run_retrieval(args.strategy, k=args.k)
+    run_retrieval(args.strategy, k=args.k, per_document=args.per_document)

@@ -8,11 +8,11 @@ from pgvector import Vector
 
 from anlagen_copilot import retrieval
 from anlagen_copilot.db import get_connection
-from anlagen_copilot.retrieval import Source, retrieve
+from anlagen_copilot.retrieval import Source, retrieve_global, retrieve_per_document
 from anlagen_copilot.settings import Strategy, get_settings
 
 
-def test_retrieve_rejects_k_below_one() -> None:
+def test_retrieve_global_rejects_k_below_one() -> None:
     """`LIMIT 0` would return no rows, which reads exactly like finding nothing.
 
     That is what the guard is for, and why `k=0` rather than a negative value:
@@ -21,10 +21,10 @@ def test_retrieve_rejects_k_below_one() -> None:
     conn = MagicMock()
 
     with pytest.raises(ValueError):
-        retrieve(NO_CLIENT, "Wo liegt das Distanzrohr?", conn, "naive", k=0)
+        retrieve_global(NO_CLIENT, "Wo liegt das Distanzrohr?", conn, "naive", k=0)
 
 
-def test_retrieve_sends_a_cosine_query_with_the_given_limit(
+def test_retrieve_global_sends_a_cosine_query_with_the_given_limit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Checks the statement that goes out, not the rows the fake hands back.
@@ -45,7 +45,7 @@ def test_retrieve_sends_a_cosine_query_with_the_given_limit(
     k = 3
     strategy: Strategy = "naive"
 
-    sources = retrieve(NO_CLIENT, "Wo liegt das Distanzrohr?", conn, strategy, k=k)
+    sources = retrieve_global(NO_CLIENT, "Wo liegt das Distanzrohr?", conn, strategy, k=k)
 
     sql, params = cursor.execute.call_args.args
     assert len(sources) == 1
@@ -59,7 +59,7 @@ def test_retrieve_sends_a_cosine_query_with_the_given_limit(
 
 
 @pytest.mark.integration
-def test_retrieve_maps_the_selected_columns_onto_source(
+def test_retrieve_global_maps_the_selected_columns_onto_source(
     db_schema: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The one thing a mock cannot reach: `class_row` against real column names.
@@ -74,7 +74,7 @@ def test_retrieve_maps_the_selected_columns_onto_source(
 
     Runs against `"advanced"` and clears that strategy first, both inside the
     transaction that is rolled back: a developer database holds the real
-    ingested chunks, and `retrieve()` searches the whole table. Filtering by an
+    ingested chunks, and `retrieve_global()` searches the whole table. Filtering by an
     unused strategy is what makes the result depend on this test's rows only —
     and it exercises the `WHERE strategy` clause against real data on the way.
     """
@@ -96,7 +96,7 @@ def test_retrieve_maps_the_selected_columns_onto_source(
             """,
             ("advanced", "roundtrip-doc", 12, "Distanzrohr [17]", Vector(vector)),
         )
-        sources = retrieve(NO_CLIENT, "egal", conn, "advanced", k=1)
+        sources = retrieve_global(NO_CLIENT, "egal", conn, "advanced", k=1)
         raise psycopg.Rollback(tx)
 
     assert len(sources) == 1
@@ -112,7 +112,7 @@ def test_retrieve_maps_the_selected_columns_onto_source(
 
 
 @pytest.mark.integration
-def test_retrieve_returns_the_best_match_first(
+def test_retrieve_global_returns_the_best_match_first(
     db_schema: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The ORDER BY, checked where it is visible: two rows, the closer one first.
@@ -127,7 +127,7 @@ def test_retrieve_returns_the_best_match_first(
 
     Runs against `"advanced"` and clears that strategy first, both inside the
     transaction that is rolled back: a developer database holds the real
-    ingested chunks, and `retrieve()` searches the whole table. Filtering by an
+    ingested chunks, and `retrieve_global()` searches the whole table. Filtering by an
     unused strategy is what makes the result depend on this test's rows only —
     and it exercises the `WHERE strategy` clause against real data on the way.
     """
@@ -150,8 +150,72 @@ def test_retrieve_returns_the_best_match_first(
                 """,
                 ("advanced", "order-doc", page, f"Seite {page}", Vector(vector)),
             )
-        sources = retrieve(NO_CLIENT, "egal", conn, "advanced", k=2)
+        sources = retrieve_global(NO_CLIENT, "egal", conn, "advanced", k=2)
         raise psycopg.Rollback(tx)
 
     assert [source.page for source in sources] == [2, 1]
     assert sources[0].score > sources[1].score
+
+
+def test_retrieve_per_document_rejects_a_cap_below_one() -> None:
+    """A cap of 0 would drop every row, which reads like finding nothing.
+
+    Same argument as for `k`, and checked before the embedding call: `NO_CLIENT`
+    raises if the guard ever moves below it.
+    """
+    conn = MagicMock()
+
+    with pytest.raises(ValueError):
+        retrieve_per_document(NO_CLIENT, "egal", conn, "naive", k=5, per_document=0)
+
+
+@pytest.mark.integration
+def test_retrieve_per_document_caps_what_one_document_contributes(
+    db_schema: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same rows, once globally and once capped — only the cap differs.
+
+    Three pages of `cap-doc-a` are closer to the query than the single page of
+    `cap-doc-b`, so the global search fills every slot from one document. That is
+    the multi-hop case this query exists for, and asserting both directions is
+    what rules out the rows themselves being the reason.
+
+    Similarity falls with the number of flipped dimensions, which keeps the order
+    independent of floating point. Runs against `"advanced"` inside a transaction
+    that is rolled back, so a developer database keeps its real chunks.
+    """
+    dimensions = get_settings().embedding_dimensions
+
+    def flipped(count: int) -> list[float]:
+        return [-0.1] * count + [0.1] * (dimensions - count)
+
+    query = flipped(0)
+    monkeypatch.setattr(retrieval, "embed", lambda client, text: query)
+
+    rows = (
+        ("cap-doc-a", 1, flipped(0)),
+        ("cap-doc-a", 2, flipped(dimensions // 8)),
+        ("cap-doc-a", 3, flipped(dimensions // 4)),
+        ("cap-doc-b", 1, flipped(dimensions // 3)),
+    )
+
+    with get_connection() as conn, conn.transaction() as tx:
+        conn.execute("DELETE FROM chunks WHERE strategy = 'advanced'")
+        for document_id, page, vector in rows:
+            conn.execute(
+                """
+                INSERT INTO chunks (strategy, document_id, page, content, embedding)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                ("advanced", document_id, page, f"{document_id} Seite {page}", Vector(vector)),
+            )
+        globally = retrieve_global(NO_CLIENT, "egal", conn, "advanced", k=3)
+        capped = retrieve_per_document(NO_CLIENT, "egal", conn, "advanced", k=3, per_document=1)
+        raise psycopg.Rollback(tx)
+
+    assert [(s.document_id, s.page) for s in globally] == [
+        ("cap-doc-a", 1),
+        ("cap-doc-a", 2),
+        ("cap-doc-a", 3),
+    ]
+    assert [(s.document_id, s.page) for s in capped] == [("cap-doc-a", 1), ("cap-doc-b", 1)]

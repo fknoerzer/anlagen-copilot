@@ -14,7 +14,7 @@ from anlagen_copilot.paths import PROJECT_ROOT
 
 # Named rather than written out at the field, because the same value is used in
 # three places: the run picks one, `ingest_document()` writes it into
-# `chunks.strategy`, and `retrieve()` filters by it. A third strategy is then
+# `chunks.strategy`, and both retrieval functions filter by it. A third strategy is then
 # one line to change instead of three to find.
 Strategy = Literal["naive", "advanced"]
 

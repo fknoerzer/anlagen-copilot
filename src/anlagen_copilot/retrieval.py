@@ -14,6 +14,29 @@ from pydantic import BaseModel, ConfigDict
 from anlagen_copilot.embeddings import embed
 from anlagen_copilot.settings import Strategy
 
+_SQL_TOP_K = """
+            SELECT document_id, page, content,
+                   1 - (embedding <=> %(vec)s) AS score
+            FROM chunks
+            WHERE strategy = %(strategy)s
+            ORDER BY embedding <=> %(vec)s
+            LIMIT %(k)s
+            """
+
+_SQL_PER_DOCUMENT = """
+            SELECT document_id, page, content, score FROM (
+                SELECT document_id, page, content,
+                       1 - (embedding <=> %(vec)s) AS score,
+                       ROW_NUMBER() OVER (PARTITION BY document_id
+                                          ORDER BY embedding <=> %(vec)s) AS rank
+                FROM chunks
+                WHERE strategy = %(strategy)s
+            ) candidates
+            WHERE rank <= %(m)s
+            ORDER BY score DESC
+            LIMIT %(k)s
+            """
+
 
 class Source(BaseModel):
     """One retrieved page, as far as the database knows it.
@@ -44,7 +67,7 @@ class Source(BaseModel):
     content: str
 
 
-def retrieve(
+def retrieve_global(
     client: OpenAI, text: str, conn: Connection, strategy: Strategy, *, k: int = 5
 ) -> list[Source]:
     """Return the `k` chunks closest to `text`, best match first.
@@ -71,16 +94,53 @@ def retrieve(
         raise ValueError(f"k must be at least 1 (chunks to retrieve), got {k}")
 
     embedding = embed(client, text)
+    params: dict[str, object] = {"vec": Vector(embedding), "strategy": strategy, "k": k}
 
     with conn.cursor(row_factory=class_row(Source)) as cur:
-        return cur.execute(
-            """
-            SELECT document_id, page, content,
-                   1 - (embedding <=> %(vec)s) AS score
-            FROM chunks
-            WHERE strategy = %(strategy)s
-            ORDER BY embedding <=> %(vec)s
-            LIMIT %(k)s
-            """,
-            {"vec": Vector(embedding), "strategy": strategy, "k": k},
-        ).fetchall()
+        return cur.execute(_SQL_TOP_K, params).fetchall()
+
+
+def retrieve_per_document(
+    client: OpenAI,
+    text: str,
+    conn: Connection,
+    strategy: Strategy,
+    *,
+    k: int = 5,
+    per_document: int,
+) -> list[Source]:
+    """Return the `k` best chunks, at most `per_document` of them from one document.
+
+    What `retrieve_global()` cannot do: a multi-hop question needs a source from a
+    second manual, but the pages of one manual resemble each other and fill the
+    top k on their own. The cap reserves room for the other documents.
+
+    Ranking every row is what the window function costs: this query cannot use the
+    HNSW index and scores exactly rather than approximately, which is why
+    `retrieve_global()` stays the path the recorded runs were measured on.
+
+    `rank` exists only to filter on and never leaves the subquery — `Source`
+    forbids unknown fields, and `class_row` hands it every selected column.
+
+    Raises:
+        ValueError: When `k` or `per_document` is below 1. Either would return no
+            rows at all, which is indistinguishable from finding nothing.
+    """
+    if per_document < 1:
+        raise ValueError(
+            f"per_document must be at least 1 (chunks per document), got {per_document}"
+        )
+
+    if k < 1:
+        raise ValueError(f"k must be at least 1 (chunks to retrieve), got {k}")
+
+    embedding = embed(client, text)
+    params: dict[str, object] = {
+        "vec": Vector(embedding),
+        "strategy": strategy,
+        "k": k,
+        "m": per_document,
+    }
+
+    with conn.cursor(row_factory=class_row(Source)) as cur:
+        return cur.execute(_SQL_PER_DOCUMENT, params).fetchall()
