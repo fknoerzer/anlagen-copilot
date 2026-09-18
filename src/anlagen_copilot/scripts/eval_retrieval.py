@@ -17,6 +17,7 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
+from anthropic import Anthropic
 from openai import OpenAI
 from pydantic import BaseModel
 
@@ -24,6 +25,7 @@ from anlagen_copilot.db import get_connection
 from anlagen_copilot.eval import load_eval
 from anlagen_copilot.logging_setup import setup_logging
 from anlagen_copilot.paths import DATA_DIR, PROJECT_ROOT
+from anlagen_copilot.rerank import rerank
 from anlagen_copilot.retrieval import retrieve_global, retrieve_per_document
 from anlagen_copilot.settings import Strategy, get_settings
 
@@ -60,6 +62,8 @@ class EvalRun(BaseModel):
     strategy: Strategy
     k: int
     per_document: int | None = None
+    candidates: int | None = None
+    reranker: str | None = None
     embedding_model: str
     embedding_dimensions: int
     recall: float
@@ -125,6 +129,8 @@ def run_retrieval(
     *,
     k: int = 5,
     per_document: int | None = None,
+    candidates: int | None = None,
+    reranker: str | None = None,
     runs_path: Path = DEFAULT_EVAL_RUNS_PATH,
 ) -> EvalRun:
     """Run every eval question through retrieval and append the outcome to `runs_path`.
@@ -137,21 +143,53 @@ def run_retrieval(
     `retrieve_per_document()`. It is written into the run either way, so the two
     never mix in the series.
 
+    `candidates` and `reranker` come as a pair: the search fetches `candidates`
+    chunks, the model regrades them and keeps `k`. Both are recorded, so a
+    reranked recall never passes for a plain one.
+
     The run is returned as well as appended, so a caller can assert on it without
     reading the file back.
+
+    Raises:
+        ValueError: When only one of `candidates` and `reranker` is given, or
+            `candidates` is below `k`. Checked before the first API call.
     """
+    if (candidates is None) != (reranker is None):
+        raise ValueError(
+            "candidates and reranker go together: fetch that many chunks, then regrade them"
+        )
+    if candidates is not None and candidates < k:
+        raise ValueError(f"candidates must be at least k ({k}), got {candidates}")
+
     eval_set = load_eval()
-    client = OpenAI(api_key=get_settings().openai_api_key.get_secret_value())
+    settings = get_settings()
+    client = OpenAI(api_key=settings.openai_api_key.get_secret_value())
+    anthropic_client = Anthropic(api_key=settings.anthropic_api_key.get_secret_value())
+    fetch = k if candidates is None else candidates
     results: list[QuestionResult] = []
 
     with get_connection() as conn:
         for question in eval_set.questions:
             if per_document is not None:
                 sources = retrieve_per_document(
-                    client, question.question, conn, strategy, k=k, per_document=per_document
+                    client, question.question, conn, strategy, k=fetch, per_document=per_document
                 )
             else:
-                sources = retrieve_global(client, question.question, conn, strategy, k=k)
+                sources = retrieve_global(client, question.question, conn, strategy, k=fetch)
+
+            if reranker is not None:
+                graded = rerank(
+                    anthropic_client, question.question, sources, model=reranker, top_n=k
+                )
+                for g in graded:
+                    logger.debug(
+                        "%s: grade %d %s p.%d",
+                        question.id,
+                        g.grade,
+                        g.source.document_id,
+                        g.source.page,
+                    )
+                sources = [g.source for g in graded]
 
             for rank, s in enumerate(sources, start=1):
                 logger.debug(
@@ -160,7 +198,10 @@ def run_retrieval(
 
             expected = {(e.document_id, e.page) for e in question.expected_sources}
             found = {(s.document_id, s.page) for s in sources}
-            best = sources[0].score if sources else 0.0
+            # The highest vector score, not the first page's: after reranking the
+            # first page is the best graded one, and `best_score` would quietly
+            # change its meaning between runs.
+            best = max((s.score for s in sources), default=0.0)
             results.append(
                 QuestionResult(
                     id=question.id,
@@ -192,15 +233,16 @@ def run_retrieval(
                     best,
                 )
 
-    _log_summary(results, strategy, k, per_document)
+    _log_summary(results, strategy, k, per_document, candidates, reranker)
 
-    settings = get_settings()
     run = EvalRun(
         run_at=datetime.now(UTC),
         commit=_current_commit(),
         strategy=strategy,
         k=k,
         per_document=per_document,
+        candidates=candidates,
+        reranker=reranker,
         embedding_model=settings.embedding_model,
         embedding_dimensions=settings.embedding_dimensions,
         recall=_recall(results),
@@ -211,7 +253,12 @@ def run_retrieval(
 
 
 def _log_summary(
-    results: list[QuestionResult], strategy: Strategy, k: int, per_document: int | None
+    results: list[QuestionResult],
+    strategy: Strategy,
+    k: int,
+    per_document: int | None,
+    candidates: int | None,
+    reranker: str | None,
 ) -> None:
     """Aggregate the per-question outcomes into the numbers worth comparing.
 
@@ -227,11 +274,14 @@ def _log_summary(
             per_category[r.category].append(r)
 
     logger.info(
-        "--- retrieval over %d questions, strategy '%s', k=%d, per_document=%s ---",
+        "--- retrieval over %d questions, strategy '%s', k=%d, per_document=%s, "
+        "candidates=%s, reranker=%s ---",
         len(results),
         strategy,
         k,
         per_document,
+        candidates,
+        reranker,
     )
 
     for category in sorted(per_category):
@@ -290,7 +340,24 @@ if __name__ == "__main__":
         metavar="N",
         help="chunks to keep per document, unlimited when unset",
     )
+    parser.add_argument(
+        "--candidates",
+        type=int,
+        metavar="N",
+        help="chunks to fetch before reranking, needs --reranker",
+    )
+    parser.add_argument(
+        "--reranker",
+        metavar="MODEL",
+        help="model that regrades the candidates, off when unset",
+    )
     args = parser.parse_args()
 
     setup_logging()
-    run_retrieval(args.strategy, k=args.k, per_document=args.per_document)
+    run_retrieval(
+        args.strategy,
+        k=args.k,
+        per_document=args.per_document,
+        candidates=args.candidates,
+        reranker=args.reranker,
+    )

@@ -7,6 +7,7 @@ import pytest
 from helpers import make_eval_question
 
 from anlagen_copilot.eval import EvalQuestion, EvalSet
+from anlagen_copilot.rerank import GradedSource
 from anlagen_copilot.retrieval import Source
 from anlagen_copilot.scripts import eval_retrieval
 from anlagen_copilot.scripts.eval_retrieval import (
@@ -139,6 +140,7 @@ def _patch_run_retrieval(
     eval_set = EvalSet(questions=questions)
     monkeypatch.setattr(eval_retrieval, "load_eval", Mock(return_value=eval_set))
     monkeypatch.setattr(eval_retrieval, "OpenAI", Mock())
+    monkeypatch.setattr(eval_retrieval, "Anthropic", Mock())
     monkeypatch.setattr(eval_retrieval, "get_connection", MagicMock())
     retrieve = Mock(side_effect=results)
     monkeypatch.setattr(eval_retrieval, "retrieve_global", retrieve)
@@ -314,3 +316,37 @@ def test_run_retrieval_scores_zero_when_retrieval_returns_nothing(
     run = run_retrieval(strategy="naive", runs_path=tmp_path / "eval_runs.jsonl")
 
     assert (run.results[0].found, run.results[0].best_score) == (0, 0.0)
+
+
+def test_run_retrieval_regrades_the_candidates_and_keeps_k(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With a reranker the search fetches `candidates`, and the model picks the top `k`.
+
+    The search puts the expected page second, so with k=1 a plain run would miss
+    it; finding it means the reranker's order reached the results.
+    """
+    miss = _make_source(page=99, score=0.9)
+    hit = _make_source(page=1, score=0.5)
+    retrieve = _patch_run_retrieval(monkeypatch, [make_eval_question()], [[miss, hit]])
+    rerank = Mock(return_value=[GradedSource(source=hit, grade=3)])
+    monkeypatch.setattr(eval_retrieval, "rerank", rerank)
+
+    run = run_retrieval(
+        k=1, candidates=2, reranker="test-model", runs_path=tmp_path / "eval_runs.jsonl"
+    )
+
+    assert retrieve.call_args.kwargs["k"] == 2
+    assert rerank.call_args.kwargs == {"model": "test-model", "top_n": 1}
+    assert run.results[0].found == 1
+    assert (run.candidates, run.reranker) == (2, "test-model")
+
+
+def test_run_retrieval_rejects_candidates_without_a_reranker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fetching 20 without regrading would record a 20-page recall under k=5."""
+    _patch_run_retrieval(monkeypatch, [make_eval_question()], [[_make_source()]])
+
+    with pytest.raises(ValueError):
+        run_retrieval(k=5, candidates=20, runs_path=tmp_path / "eval_runs.jsonl")
