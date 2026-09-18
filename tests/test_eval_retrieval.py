@@ -7,7 +7,7 @@ import pytest
 from helpers import make_eval_question
 
 from anlagen_copilot.eval import EvalQuestion, EvalSet
-from anlagen_copilot.rerank import GradedSource
+from anlagen_copilot.rerank import GradedSource, Reranked
 from anlagen_copilot.retrieval import Source
 from anlagen_copilot.scripts import eval_retrieval
 from anlagen_copilot.scripts.eval_retrieval import (
@@ -329,7 +329,10 @@ def test_run_retrieval_regrades_the_candidates_and_keeps_k(
     miss = _make_source(page=99, score=0.9)
     hit = _make_source(page=1, score=0.5)
     retrieve = _patch_run_retrieval(monkeypatch, [make_eval_question()], [[miss, hit]])
-    rerank = Mock(return_value=[GradedSource(source=hit, grade=3)])
+    reranked = Reranked(
+        graded=[GradedSource(source=hit, grade=3)], input_tokens=1200, output_tokens=80
+    )
+    rerank = Mock(return_value=reranked)
     monkeypatch.setattr(eval_retrieval, "rerank", rerank)
 
     run = run_retrieval(
@@ -340,6 +343,9 @@ def test_run_retrieval_regrades_the_candidates_and_keeps_k(
     assert rerank.call_args.kwargs == {"model": "test-model", "top_n": 1}
     assert run.results[0].found == 1
     assert (run.candidates, run.reranker) == (2, "test-model")
+    # One question, so the totals are that question's — what this pins is that they
+    # reach the record at all, which is the whole point of counting them.
+    assert (run.rerank_input_tokens, run.rerank_output_tokens) == (1200, 80)
 
 
 def test_run_retrieval_rejects_candidates_without_a_reranker(

@@ -90,6 +90,16 @@ class GradedSource(BaseModel):
     grade: Relevance
 
 
+class Reranked(BaseModel):
+    """What one call produced: the ordered pages and what they cost."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    graded: list[GradedSource]
+    input_tokens: int
+    output_tokens: int
+
+
 def _build_prompt(question: str, candidates: list[Source]) -> str:
     """Number each candidate from 1 and put the question after the pages."""
     pages = "\n\n".join(
@@ -119,7 +129,7 @@ def _order(candidates: list[Source], grades: list[Grade], *, top_n: int) -> list
 
 def rerank(
     client: Anthropic, question: str, candidates: list[Source], *, model: str, top_n: int
-) -> list[GradedSource]:
+) -> Reranked:
     """Grade every candidate against `question` in one call and return the best `top_n`.
 
     `question` is the text alone, never an eval question: those carry their
@@ -138,7 +148,7 @@ def rerank(
     if top_n < 1:
         raise ValueError(f"top_n must be at least 1 (pages to keep), got {top_n}")
     if not candidates:
-        return []
+        return Reranked(graded=[], input_tokens=0, output_tokens=0)
 
     message = client.messages.create(
         model=model,
@@ -154,4 +164,8 @@ def rerank(
         raise ValueError(f"{model} returned no grades (stop reason: {message.stop_reason})")
 
     grades = _Grades.model_validate(block.input).grades
-    return _order(candidates, grades, top_n=top_n)
+    return Reranked(
+        graded=_order(candidates, grades, top_n=top_n),
+        input_tokens=message.usage.input_tokens,
+        output_tokens=message.usage.output_tokens,
+    )

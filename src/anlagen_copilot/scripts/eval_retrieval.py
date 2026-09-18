@@ -64,6 +64,8 @@ class EvalRun(BaseModel):
     per_document: int | None = None
     candidates: int | None = None
     reranker: str | None = None
+    rerank_input_tokens: int | None = None
+    rerank_output_tokens: int | None = None
     embedding_model: str
     embedding_dimensions: int
     recall: float
@@ -167,6 +169,8 @@ def run_retrieval(
     anthropic_client = Anthropic(api_key=settings.anthropic_api_key.get_secret_value())
     fetch = k if candidates is None else candidates
     results: list[QuestionResult] = []
+    rerank_input = rerank_output = 0
+    rerank_input = rerank_output = 0
 
     with get_connection() as conn:
         for question in eval_set.questions:
@@ -178,18 +182,20 @@ def run_retrieval(
                 sources = retrieve_global(client, question.question, conn, strategy, k=fetch)
 
             if reranker is not None:
-                graded = rerank(
+                result = rerank(
                     anthropic_client, question.question, sources, model=reranker, top_n=k
                 )
-                for g in graded:
+                rerank_input += result.input_tokens
+                rerank_output += result.output_tokens
+                for graded in result.graded:
                     logger.debug(
                         "%s: grade %d %s p.%d",
                         question.id,
-                        g.grade,
-                        g.source.document_id,
-                        g.source.page,
+                        graded.grade,
+                        graded.source.document_id,
+                        graded.source.page,
                     )
-                sources = [g.source for g in graded]
+                sources = [graded.source for graded in result.graded]
 
             for rank, s in enumerate(sources, start=1):
                 logger.debug(
@@ -233,7 +239,14 @@ def run_retrieval(
                     best,
                 )
 
-    _log_summary(results, strategy, k, per_document, candidates, reranker)
+    # None rather than 0 without a reranker: a measured zero means something else
+    # than never measured, and the record is read back long after the run.
+    input_tokens = rerank_input if reranker is not None else None
+    output_tokens = rerank_output if reranker is not None else None
+
+    _log_summary(
+        results, strategy, k, per_document, candidates, reranker, input_tokens, output_tokens
+    )
 
     run = EvalRun(
         run_at=datetime.now(UTC),
@@ -243,6 +256,8 @@ def run_retrieval(
         per_document=per_document,
         candidates=candidates,
         reranker=reranker,
+        rerank_input_tokens=input_tokens,
+        rerank_output_tokens=output_tokens,
         embedding_model=settings.embedding_model,
         embedding_dimensions=settings.embedding_dimensions,
         recall=_recall(results),
@@ -259,6 +274,8 @@ def _log_summary(
     per_document: int | None,
     candidates: int | None,
     reranker: str | None,
+    rerank_input_tokens: int | None,
+    rerank_output_tokens: int | None,
 ) -> None:
     """Aggregate the per-question outcomes into the numbers worth comparing.
 
@@ -275,13 +292,15 @@ def _log_summary(
 
     logger.info(
         "--- retrieval over %d questions, strategy '%s', k=%d, per_document=%s, "
-        "candidates=%s, reranker=%s ---",
+        "candidates=%s, reranker=%s, rerank tokens in/out %s/%s ---",
         len(results),
         strategy,
         k,
         per_document,
         candidates,
         reranker,
+        rerank_input_tokens,
+        rerank_output_tokens,
     )
 
     for category in sorted(per_category):
