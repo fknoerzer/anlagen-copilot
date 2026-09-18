@@ -50,6 +50,7 @@ _GRADE_TOOL: ToolParam = {
                         "id": {"type": "integer"},
                         "grade": {"type": "integer", "enum": [0, 1, 2, 3]},
                     },
+                    "additionalProperties": False,
                     "required": ["id", "grade"],
                 },
             }
@@ -152,12 +153,15 @@ def rerank(
 
     message = client.messages.create(
         model=model,
-        max_tokens=1024,
+        max_tokens=128 + 64 * len(candidates),
         system=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": _build_prompt(question, candidates)}],
         tools=[_GRADE_TOOL],
         tool_choice={"type": "tool", "name": "record_grades"},
     )
+
+    if message.stop_reason != "tool_use":
+        raise ValueError(f"{model} did not finish its grades (stop reason: {message.stop_reason})")
 
     block = next((b for b in message.content if isinstance(b, ToolUseBlock)), None)
     if block is None:
