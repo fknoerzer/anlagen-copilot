@@ -170,7 +170,6 @@ def run_retrieval(
     fetch = k if candidates is None else candidates
     results: list[QuestionResult] = []
     rerank_input = rerank_output = 0
-    rerank_input = rerank_output = 0
 
     with get_connection() as conn:
         for question in eval_set.questions:
