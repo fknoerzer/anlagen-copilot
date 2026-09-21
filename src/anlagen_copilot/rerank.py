@@ -74,7 +74,7 @@ class Grade(BaseModel):
     uniform row of zeroes.
     """
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     id: int
     grade: Relevance
