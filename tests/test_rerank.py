@@ -4,6 +4,7 @@ import pytest
 from anthropic import Anthropic
 from anthropic.types import Message, StopReason, TextBlock, ToolUseBlock, Usage
 from helpers import was_logged
+from pydantic import ValidationError
 
 from anlagen_copilot.rerank import GradedSource, rerank
 from anlagen_copilot.retrieval import Source
@@ -148,4 +149,13 @@ def test_rerank_rejects_a_response_without_tool_call() -> None:
     client = _FakeClient(message)
 
     with pytest.raises(ValueError, match="no grades"):
+        rerank(cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=3)
+
+
+def test_rerank_rejects_a_grade_outside_zero_to_three() -> None:
+    client = _FakeClient(
+        _message([{"id": 1, "grade": 1}, {"id": 2, "grade": 6}, {"id": 3, "grade": 3}])
+    )
+
+    with pytest.raises(ValidationError, match="grade"):
         rerank(cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=3)
