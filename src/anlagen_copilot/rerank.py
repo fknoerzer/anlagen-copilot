@@ -68,8 +68,9 @@ class Grade(BaseModel):
     """One grade as the model returns it; `id` is the page's number in the prompt.
 
     The id is repeated back rather than implied by the position. A flat list of
-    grades was measured and costs a third of the output tokens — and finds 4 of
-    12 expected sources where this shape finds 11 (run 11 in `eval_runs.jsonl`).
+    grades was measured and costs under a third of the output tokens — and, in
+    three calls each on the questions run 11 lost (q-007, q-033, q-034), finds
+    4 of 12 expected sources where this shape finds 11 (see `1f4d839`).
     Naming the page before grading it is what keeps the model from writing out a
     uniform row of zeroes.
     """
