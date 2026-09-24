@@ -413,3 +413,57 @@ def test_log_summary_reports_the_median_latency_not_the_mean(
     _log_summary(results, "naive", 5, None, None, None, None, None)
 
     assert "retrieval 2.00s, rerank —, total 2.00s" in caplog.text
+
+
+def test_run_retrieval_ranks_every_expected_page_including_a_missing_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One entry per expected page, not per returned one; a page not returned ranks None."""
+    question = make_eval_question(
+        expected_sources=[
+            {"document_id": "sew-getriebe-ba", "page": 1},
+            {"document_id": "sew-getriebe-ba", "page": 2},
+        ]
+    )
+    returned = [_make_source(page=99), _make_source(page=98), _make_source(page=1)]
+    _patch_run_retrieval(monkeypatch, [question], [returned])
+
+    run = run_retrieval(k=3, runs_path=tmp_path / "eval_runs.jsonl")
+
+    ranks = run.results[0].source_ranks
+    assert ranks is not None
+    assert [(r.page, r.retrieval_rank, r.rerank_rank) for r in ranks] == [
+        (1, 3, None),
+        (2, None, None),
+    ]
+
+
+def test_run_retrieval_keeps_the_search_rank_that_reranking_overwrites(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The search puts the page second, the reranker first; both places reach the record."""
+    miss = _make_source(page=99, score=0.9)
+    hit = _make_source(page=1, score=0.5)
+    _patch_run_retrieval(monkeypatch, [make_eval_question()], [[miss, hit]])
+    reranked = Reranked(graded=[GradedSource(source=hit, grade=3)], input_tokens=1, output_tokens=1)
+    monkeypatch.setattr(eval_retrieval, "rerank", Mock(return_value=reranked))
+
+    run = run_retrieval(
+        k=1, candidates=2, reranker="test-model", runs_path=tmp_path / "eval_runs.jsonl"
+    )
+
+    ranks = run.results[0].source_ranks
+    assert ranks is not None
+    assert [(r.retrieval_rank, r.rerank_rank) for r in ranks] == [(2, 1)]
+
+
+def test_run_retrieval_records_no_ranks_for_an_unanswerable_question(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An empty list, not None: measured, with nothing to rank — None means not recorded."""
+    question = make_eval_question(category="unanswerable", expected_sources=[], expected_facts=[])
+    _patch_run_retrieval(monkeypatch, [question], [[_make_source()]])
+
+    run = run_retrieval(runs_path=tmp_path / "eval_runs.jsonl")
+
+    assert run.results[0].source_ranks == []

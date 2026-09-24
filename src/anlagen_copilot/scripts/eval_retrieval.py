@@ -28,7 +28,7 @@ from anlagen_copilot.eval import load_eval
 from anlagen_copilot.logging_setup import setup_logging
 from anlagen_copilot.paths import DATA_DIR, PROJECT_ROOT
 from anlagen_copilot.rerank import rerank
-from anlagen_copilot.retrieval import retrieve_global, retrieve_per_document
+from anlagen_copilot.retrieval import Source, retrieve_global, retrieve_per_document
 from anlagen_copilot.settings import Strategy, get_settings
 
 logger = logging.getLogger(__name__)
@@ -39,6 +39,15 @@ DEFAULT_EVAL_RUNS_PATH = DATA_DIR / "eval_runs.jsonl"
 # every run appends to it, so the second of two back-to-back runs would be marked
 # dirty although only the record of the first had changed.
 _CODE_PATHS = ("src", "pyproject.toml", "uv.lock")
+
+
+class SourceRank(BaseModel):
+    """Where one expected page landed; `None` means it was not among the pages returned."""
+
+    document_id: str
+    page: int
+    retrieval_rank: int | None = None
+    rerank_rank: int | None = None
 
 
 class QuestionResult(BaseModel):
@@ -56,6 +65,7 @@ class QuestionResult(BaseModel):
     best_score: float
     retrieval_seconds: float | None = None
     rerank_seconds: float | None = None
+    source_ranks: list[SourceRank] | None = None
 
 
 class EvalRun(BaseModel):
@@ -109,6 +119,11 @@ def _current_commit(repo: Path = PROJECT_ROOT) -> str | None:
     if not commit:
         return None
     return f"{commit}-dirty" if status.stdout.strip() else commit
+
+
+def _positions(sources: list[Source]) -> dict[tuple[str, int], int]:
+    """Map each page to its place from 1, so an expected page can be looked up by key."""
+    return {(s.document_id, s.page): place for place, s in enumerate(sources, start=1)}
 
 
 def _recall(results: list[QuestionResult]) -> float:
@@ -190,6 +205,9 @@ def run_retrieval(
 
             retrieval_end_time = time.perf_counter()
             retrieval_seconds = retrieval_end_time - retrieval_start_time
+            # Taken before reranking overwrites `sources`, else the search's order is lost.
+            retrieval_positions = _positions(sources)
+            rerank_positions: dict[tuple[str, int], int] | None = None
 
             if reranker is not None:
                 rerank_start_time = time.perf_counter()
@@ -211,6 +229,7 @@ def run_retrieval(
                         graded.source.page,
                     )
                 sources = [graded.source for graded in result.graded]
+                rerank_positions = _positions(sources)
 
             for rank, s in enumerate(sources, start=1):
                 logger.debug(
@@ -218,6 +237,19 @@ def run_retrieval(
                 )
 
             expected = {(e.document_id, e.page) for e in question.expected_sources}
+            source_ranks = [
+                SourceRank(
+                    document_id=e.document_id,
+                    page=e.page,
+                    retrieval_rank=retrieval_positions.get((e.document_id, e.page)),
+                    rerank_rank=(
+                        None
+                        if rerank_positions is None
+                        else rerank_positions.get((e.document_id, e.page))
+                    ),
+                )
+                for e in question.expected_sources
+            ]
             found = {(s.document_id, s.page) for s in sources}
             # The highest vector score, not the first page's: after reranking the
             # first page is the best graded one, and `best_score` would quietly
@@ -232,6 +264,7 @@ def run_retrieval(
                     best_score=best,
                     rerank_seconds=rerank_seconds,
                     retrieval_seconds=retrieval_seconds,
+                    source_ranks=source_ranks,
                 )
             )
 
