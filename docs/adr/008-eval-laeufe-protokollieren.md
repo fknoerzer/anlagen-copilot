@@ -26,7 +26,8 @@ Ein Auswertungsskript, das die Reihe zurückliest, gibt es noch nicht.
 ## Konsequenzen
 
 - Jede Zahl in der README lässt sich auf einen Lauf zurückführen.
-- Neue Felder brauchen einen Default, damit ältere Zeilen lesbar bleiben.
-- **Offen:** Welcher Stand des Eval-Sets gemessen wurde, steht nur indirekt
-  über den Commit-Hash in der Zeile. Ein eigenes Feld `eval_set_version` ist
-  vorgesehen.
+- Neue Felder brauchen einen Default oder werden in den älteren Zeilen
+  nachgetragen, damit diese lesbar bleiben. Nachgetragen ist bisher nur
+  `eval_set_version`, weil der Wert für alle alten Zeilen bekannt war (`v1`).
+- Welcher Stand des Eval-Sets gemessen wurde, steht als `eval_set_version` in
+  jeder Zeile, gepflegt als `version` in `data/eval_set.yaml`.
