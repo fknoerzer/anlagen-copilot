@@ -38,10 +38,9 @@ def _statements(dimensions: int) -> tuple[str, ...]:
             UNIQUE (strategy, document_id, page)
         );
         """,
-        """
-        CREATE INDEX IF NOT EXISTS chunks_embedding_hnsw_idx
-        ON chunks USING hnsw (embedding vector_cosine_ops);
-        """,
+        # Dropped, not merely no longer created: `IF NOT EXISTS` above leaves an
+        # existing database as it is, and the index would outlive ADR 011 there.
+        "DROP INDEX IF EXISTS chunks_embedding_hnsw_idx;",
     )
 
 
@@ -53,7 +52,7 @@ def init_db() -> None:
 
     Careful: `IF NOT EXISTS` also means an existing table is *not* adjusted to
     a changed `embedding_dimensions`. The difference then only surfaces at the
-    HNSW index or at the `INSERT`.
+    first `INSERT`.
     """
     dimensions = get_settings().embedding_dimensions
     logger.info("Creating schema (embedding_dimensions=%d), idempotent", dimensions)

@@ -50,9 +50,9 @@ class Settings(BaseSettings):
 
     ingest_strategy: Strategy = "naive"
 
-    # The ceiling is pgvector's, not a preference: an HNSW index takes at most 2000
-    # dimensions, which rules out the model's native 3072. 1536 is the common choice
-    # below it, not a measured one. The `vector` column on its own would hold far more.
+    # The ceiling came from pgvector's HNSW index, which takes at most 2000 dimensions.
+    # The search runs without it since ADR 011; the ceiling stays so the index can
+    # return without re-embedding (ADR 003). 1536 is the common choice, not a measured one.
     embedding_dimensions: int = Field(default=1536, ge=1, le=2000)
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"

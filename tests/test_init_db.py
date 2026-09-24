@@ -38,3 +38,22 @@ def test_init_db_creates_expected_chunks_schema() -> None:
         ("content", "text"),
         ("embedding", "USER-DEFINED"),
     ]
+
+
+def test_init_db_drops_the_ann_index_an_older_schema_left_behind() -> None:
+    """ADR 011: an existing database loses the HNSW index too, not only a fresh one."""
+    init_db()
+    with get_connection() as conn:
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS chunks_embedding_hnsw_idx"
+            " ON chunks USING hnsw (embedding vector_cosine_ops)"
+        )
+
+    init_db()
+
+    with get_connection() as conn:
+        indexes = {
+            row[0]
+            for row in conn.execute("SELECT indexname FROM pg_indexes WHERE tablename = 'chunks'")
+        }
+    assert "chunks_embedding_hnsw_idx" not in indexes

@@ -15,3 +15,4 @@ Alternativen und Konsequenzen.
 | [008](008-eval-laeufe-protokollieren.md) | Jeder Eval-Lauf wird mit seiner Konfiguration protokolliert |
 | [009](009-pgvector.md) | PostgreSQL mit pgvector als Vektordatenbank |
 | [010](010-kein-rag-framework.md) | Kein RAG-Framework |
+| [011](011-vollstaendige-suche-statt-hnsw.md) | Vollständige Suche statt HNSW-Index |

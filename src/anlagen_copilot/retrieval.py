@@ -73,9 +73,11 @@ def retrieve_global(
     """Return the `k` chunks closest to `text`, best match first.
 
     `score` is a similarity, not a distance: 1.0 is identical, and higher is
-    better. `<=>` is the only operator that may be used here — the HNSW index is
-    built with `vector_cosine_ops`, and `<->` or `<#>` would quietly fall back to
-    a sequential scan over a different metric.
+    better. `<=>` is cosine distance, the metric the score is derived from;
+    `<->` or `<#>` would rank by a different one and still look plausible.
+
+    Every row is compared, with no ANN index in between (ADR 011): at this corpus
+    size an index saved no time once it stopped dropping pages.
 
     The query vector is wrapped in `Vector()` because `register_vector()`
     registers a dumper for `Vector` and `numpy.ndarray`, not for `list`. Beside
@@ -115,9 +117,8 @@ def retrieve_per_document(
     second manual, but the pages of one manual resemble each other and fill the
     top k on their own. The cap reserves room for the other documents.
 
-    Ranking every row is what the window function costs: this query cannot use the
-    HNSW index and scores exactly rather than approximately, which is why
-    `retrieve_global()` stays the path the recorded runs were measured on.
+    Both searches compare every row (ADR 011); the window function only adds the
+    cap. `retrieve_global()` stays the path the recorded runs were measured on.
 
     `rank` exists only to filter on and never leaves the subquery — `Source`
     forbids unknown fields, and `class_row` hands it every selected column.
