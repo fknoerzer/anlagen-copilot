@@ -10,6 +10,7 @@ def test_load_eval_succeeds(tmp_path: Path) -> None:
     f = tmp_path / "eval_set.yaml"
     f.write_text(
         """
+version: v1
 questions:
   - id: q-test
     category: lookup
@@ -59,6 +60,7 @@ def test_load_eval_fails_with_missing_content(tmp_path: Path) -> None:
     f = tmp_path / "eval_set.yaml"
     f.write_text(
         """
+version: v1
 questions:
   - id: q-test
     category: lookup
@@ -77,6 +79,7 @@ def test_load_eval_succeeds_with_unanswerable_question(tmp_path: Path) -> None:
     f = tmp_path / "eval_set.yaml"
     f.write_text(
         """
+version: v1
 questions:
   - id: q-test
     category: unanswerable
@@ -104,6 +107,7 @@ def test_load_eval_fails_with_incorrect_unanswerable_question(tmp_path: Path) ->
     f = tmp_path / "eval_set.yaml"
     f.write_text(
         """
+version: v1
 questions:
   - id: q-test
     category: unanswerable
@@ -130,6 +134,7 @@ def test_load_eval_fails_with_incorrect_source_document_id(tmp_path: Path) -> No
     f = tmp_path / "eval_set.yaml"
     f.write_text(
         """
+version: v1
 questions:
   - id: q-test
     category: lookup
@@ -144,4 +149,43 @@ questions:
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="not found in corpus.yaml"):
+        load_eval(f)
+
+
+def test_load_eval_reads_the_version(tmp_path: Path) -> None:
+    f = tmp_path / "eval_set.yaml"
+    f.write_text(
+        """
+version: v7
+questions:
+  - id: q-test
+    category: unanswerable
+    question: Testfrage?
+    expected_sources: []
+    expected_facts: []
+""",
+        encoding="utf-8",
+    )
+
+    eval_set = load_eval(f)
+
+    assert eval_set.version == "v7"
+
+
+def test_load_eval_rejects_a_set_without_version(tmp_path: Path) -> None:
+    """A set without a version must not pass as v1 — only old runs get that default."""
+    f = tmp_path / "eval_set.yaml"
+    f.write_text(
+        """
+questions:
+  - id: q-test
+    category: unanswerable
+    question: Testfrage?
+    expected_sources: []
+    expected_facts: []
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="version"):
         load_eval(f)

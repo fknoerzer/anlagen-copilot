@@ -81,6 +81,7 @@ class EvalSet(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    version: str
     questions: list[EvalQuestion]
 
     @model_validator(mode="after")

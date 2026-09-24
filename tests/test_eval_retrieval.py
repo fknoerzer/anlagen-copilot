@@ -94,6 +94,7 @@ def _make_eval_run(**overrides: object) -> EvalRun:
     defaults: dict[str, object] = {
         "run_at": datetime(2026, 9, 11, 12, 0, tzinfo=UTC),
         "commit": "abc1234",
+        "eval_set_version": "v-test",
         "strategy": "naive",
         "k": 5,
         "embedding_model": "test-embedding-model",
@@ -137,7 +138,7 @@ def _patch_run_retrieval(
     Settings stay real — `conftest` provides them, and `run_retrieval()` records
     them in the run, which a mock would only echo back.
     """
-    eval_set = EvalSet(questions=questions)
+    eval_set = EvalSet(version="v-test", questions=questions)
     monkeypatch.setattr(eval_retrieval, "load_eval", Mock(return_value=eval_set))
     monkeypatch.setattr(eval_retrieval, "OpenAI", Mock())
     monkeypatch.setattr(eval_retrieval, "Anthropic", Mock())
@@ -356,3 +357,22 @@ def test_run_retrieval_rejects_candidates_without_a_reranker(
 
     with pytest.raises(ValueError):
         run_retrieval(k=5, candidates=20, runs_path=tmp_path / "eval_runs.jsonl")
+
+
+def test_run_retrieval_records_the_eval_set_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Recall numbers are comparable only within one version of the questions (ADR 008)."""
+    _patch_run_retrieval(monkeypatch, [make_eval_question()], [[_make_source()]])
+
+    run = run_retrieval(strategy="naive", runs_path=tmp_path / "eval_runs.jsonl")
+
+    assert run.eval_set_version == "v-test"
+
+
+def test_eval_run_rejects_a_record_without_eval_set_version() -> None:
+    """A run without its version cannot be placed in a series, so it must not read as any."""
+    line = _make_eval_run().model_dump_json(exclude={"eval_set_version"})
+
+    with pytest.raises(ValueError, match="eval_set_version"):
+        EvalRun.model_validate_json(line)

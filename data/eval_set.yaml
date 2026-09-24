@@ -1,3 +1,5 @@
+# Eval-Set: Fragen mit erwarteten Belegseiten (Retrieval) und Fakten (Antwort).
+version: v2
 questions:
   - id: q-001
     category: diagram
@@ -16,7 +18,7 @@ questions:
   - id: q-002
     category: diagram
     question: >-
-      Wo findet man auf dem Typschild eines Getriebemotor DRN die Wärmeklasse?
+      Wo steht auf dem Typenschild meines DRN-Getriebemotors die Wärmeklasse?
     expected_sources:
       - document_id: sew-getriebe-ba
         page: 22
@@ -74,9 +76,7 @@ questions:
   - id: q-006
     category: table
     question: >-
-      Welches Anziehdrehmoment gilt für eine Verschluss-Schraube mit Gewinde
-      M12 × 1.5 an Ölstands-, Ölablass-Schrauben, Entlüftungsventilen oder
-      Ölschaugläsern?
+      Wie fest ziehe ich eine Verschluss-Schraube M12 × 1,5 am Getriebe an, etwa die Ölablassschraube?
     expected_sources:
       - document_id: sew-getriebe-ba
         page: 80
@@ -90,10 +90,7 @@ questions:
   - id: q-007
     category: multi-hop
     question: >-
-      Wo verweist die Betriebsanleitung der Getriebe auf die zulässigen
-      Umgebungstemperatur-Einsatzgrenzen, und welchen Temperaturbereich deckt
-      das Standard-CLP-Öl der Viskositätsklasse VG 220 für ein
-      Stirnradgetriebe R.. laut dieser Referenz ab?
+      In welchem Umgebungstemperaturbereich darf mein Stirnradgetriebe R.. mit Standard-CLP-Öl VG 220 laufen, und wo steht das?
     expected_sources:
       - document_id: sew-getriebe-ba
         page: 70
@@ -116,10 +113,7 @@ questions:
   - id: q-008
     category: multi-hop
     question: >-
-      Der Umrichter meldet die Störung F07011 "Motor Übertemperatur". Welche
-      Reaktion löst das am Umrichter aus, und was sollte laut der
-      Motor-Betriebsanleitung zusätzlich geprüft werden, wenn sich der Motor
-      zu stark erwärmt?
+      Umrichter zeigt F07011 Motor Übertemperatur. Wie reagiert der Umrichter, und was prüfe ich am Motor?
     expected_sources:
       - document_id: siemens-g120c-liste
         page: 501
@@ -142,9 +136,7 @@ questions:
   - id: q-009
     category: lookup
     question: >-
-      In welchem Intervall sollte der Motor laut Wartungstabelle inspiziert
-      werden (Wälzlager prüfen, Wellendichtringe wechseln, Kühlluftwege
-      reinigen)?
+      Wie oft muss ich beim DRN-Motor die Wälzlager prüfen, Wellendichtringe wechseln und Kühlluftwege reinigen?
     expected_sources:
       - document_id: sew-motoren-drn
         page: 131
@@ -156,8 +148,7 @@ questions:
   - id: q-010
     category: lookup
     question: >-
-      Eignet sich die Sicherheitsfunktion STO (Safe Torque Off) des SINAMICS
-      G120C zur Realisierung eines Not-Aus?
+      Kann ich STO am G120C als Not-Aus verwenden?
     expected_sources:
       - document_id: siemens-g120c-kurz
         page: 264
@@ -173,8 +164,7 @@ questions:
   - id: q-011
     category: lookup
     question: >-
-      Ab welcher Lagerzeit empfiehlt SEW-EURODRIVE die Getriebe-Ausführung
-      "Langzeitlagerung"?
+      Das Getriebe steht länger im Lager – ab wann brauche ich die Ausführung Langzeitlagerung?
     expected_sources:
       - document_id: sew-katalog-projektierung
         page: 19
@@ -186,8 +176,7 @@ questions:
   - id: q-012
     category: diagram
     question: >-
-      Welcher der drei Stoßgrade (I, II, III) hat bei gleicher Schalthäufigkeit
-      Z den höchsten Betriebsfaktor fB, und warum?
+      Welcher Stoßgrad (I, II, III) ergibt bei gleicher Schalthäufigkeit den höchsten Betriebsfaktor fB, und warum?
     expected_sources:
       - document_id: sew-katalog-projektierung
         page: 50
@@ -203,8 +192,7 @@ questions:
   - id: q-013
     category: diagram
     question: >-
-      Wovon hängt der aus Bild 8 abgelesene Betriebsfaktor fB laut Diagramm
-      ab, außer vom Stoßgrad?
+      Wovon hängt der Betriebsfaktor fB außer vom Stoßgrad noch ab?
     expected_sources:
       - document_id: sew-katalog-projektierung
         page: 50
@@ -220,8 +208,7 @@ questions:
   - id: q-014
     category: diagram
     question: >-
-      Welche Bedingung muss laut Kapitel 5.4 erfüllt sein, damit ein Getriebe
-      für eine Anwendung ausreichend dimensioniert ist?
+      Nach welcher Formel prüfe ich, ob das Getriebe für meine Last stark genug ist?
     expected_sources:
       - document_id: sew-katalog-projektierung
         page: 50
@@ -236,10 +223,7 @@ questions:
   - id: q-015
     category: multi-hop
     question: >-
-      Reicht die Prüfung Ma · fB ≤ Ma max (Betriebsfaktor-Auslegung laut
-      Katalog) allein aus, um ein Getriebe für eine Anwendung vollständig
-      auszulegen, oder muss laut Betriebsanleitung noch etwas zusätzlich
-      geprüft werden?
+      Reicht Ma · fB ≤ Ma max, um ein Getriebe auszulegen, oder muss ich noch etwas prüfen?
     expected_sources:
       - document_id: sew-katalog-projektierung
         page: 50
@@ -263,9 +247,7 @@ questions:
   - id: q-016
     category: table
     question: >-
-      In welchem Nummernbereich liegt der Störcode F07011, und wofür steht
-      dieser Bereich laut der Nummernbereichs-Tabelle für Störungen und
-      Warnungen?
+      In welchen Nummernbereich fällt die Störung F07011 am G120C, und wofür steht dieser Bereich?
     expected_sources:
       - document_id: siemens-g120c-liste
         page: 463
@@ -280,8 +262,7 @@ questions:
   - id: q-017
     category: table
     question: >-
-      Welches Shell-Produkt ist für ein Stirnradgetriebe R.. mit
-      Standard-CLP-Öl der Viskositätsklasse VG 150 freigegeben?
+      Welches Shell-Öl darf ich in ein Stirnradgetriebe R.. mit Standard-CLP VG 150 füllen?
     expected_sources:
       - document_id: sew-schmierstoffe
         page: 7
@@ -294,9 +275,7 @@ questions:
   - id: q-018
     category: table
     question: >-
-      Für welche Getriebevariante auf dieser Tabellenseite (Standard-CLP oder
-      CLP (PSS)) sind weniger Hersteller-Marken gelistet, und welche Marken
-      fehlen dort im Vergleich zur anderen Variante?
+      Welche Ölmarken sind für ein Stirnradgetriebe R.. bei Standard-CLP VG 220 freigegeben, aber nicht bei CLP (PSS)?
     expected_sources:
       - document_id: sew-schmierstoffe
         page: 7
@@ -313,8 +292,7 @@ questions:
   - id: q-019
     category: diagram
     question: >-
-      Wie viele Wellendichtringe hat der Motor DR..56 laut Explosionszeichnung
-      (Kapitel 3.2), und welchem Lagerschild ist jeweils welcher zugeordnet?
+      Wie viele Wellendichtringe hat der Motor DR..56, und an welchem Lagerschild sitzt welcher?
     expected_sources:
       - document_id: sew-motoren-drn
         page: 16
@@ -330,9 +308,7 @@ questions:
   - id: q-020
     category: diagram
     question: >-
-      Bei einem Winkel-Aufsteckgetriebe mit Schrumpfscheibe: Welche Seite (A
-      oder B) ist laut Bild 91 die abtreibende Seite, und wo befindet sich
-      die Schrumpfscheibe relativ dazu?
+      Winkel-Aufsteckgetriebe mit Schrumpfscheibe: Ist A oder B die Abtriebsseite, und wo sitzt die Schrumpfscheibe?
     expected_sources:
       - document_id: sew-katalog-projektierung
         page: 159
@@ -347,9 +323,7 @@ questions:
   - id: q-021
     category: table
     question: >-
-      Ab welcher Eintriebsdrehzahl muss bei einem R-Getriebe der Größe 97-107
-      in den Bauformen M2 oder M4 wegen erhöhter Planschverluste Rücksprache
-      mit SEW-EURODRIVE gehalten werden?
+      R-Getriebe Größe 97–107 in M2 oder M4: Ab welcher Eintriebsdrehzahl muss ich wegen Planschverlusten bei SEW nachfragen?
     expected_sources:
       - document_id: sew-katalog-projektierung
         page: 163
@@ -365,8 +339,7 @@ questions:
   - id: q-022
     category: unanswerable
     question: >-
-      Welche Raumlage (M1-M6) wird für die Montage des SINAMICS G120C
-      Umrichters empfohlen?
+      In welcher Raumlage (M1–M6) soll ich den G120C montieren?
     expected_sources: []
     expected_facts: []
     notes: >-
@@ -390,8 +363,7 @@ questions:
   - id: q-024
     category: table
     question: >-
-      Was bedeutet es laut Tabelle 9-1, wenn sowohl die LED RDY als auch die
-      LED BF schnell rot blinken?
+      Am G120C blinken RDY und BF beide schnell rot – was bedeutet das?
     expected_sources:
       - document_id: siemens-g120c-kurz
         page: 340
@@ -405,9 +377,7 @@ questions:
   - id: q-025
     category: table
     question: >-
-      Bis zu welcher Umgebungstemperatur ist der SINAMICS G120C (Baugröße
-      FSA-FSC) mit PROFINET-Schnittstelle einsetzbar, und unterscheidet sich
-      das von der Version mit PROFIBUS-Schnittstelle?
+      Bis zu welcher Umgebungstemperatur darf ein G120C FSA–FSC mit PROFINET laufen, und gilt das auch mit PROFIBUS?
     expected_sources:
       - document_id: siemens-g120c-kurz
         page: 363
@@ -435,8 +405,7 @@ questions:
   - id: q-027
     category: unanswerable
     question: >-
-      Ist der SINAMICS G120C mit einem Umrichter eines anderen Herstellers
-      (z. B. Danfoss FC 302) baugleich austauschbar?
+      Kann ich den G120C 1:1 durch einen Danfoss FC 302 ersetzen?
     expected_sources: []
     expected_facts: []
     notes: >-
@@ -446,8 +415,7 @@ questions:
   - id: q-028
     category: lookup
     question: >-
-      Wofür steht der Buchstabe "C" als Präfix einer Meldungsnummer im
-      Listenhandbuch (z. B. "Cxxxxx")?
+      Was bedeutet beim G120C eine Meldungsnummer, die mit C beginnt?
     expected_sources:
       - document_id: siemens-g120c-liste
         page: 458
@@ -461,8 +429,7 @@ questions:
   - id: q-029
     category: lookup
     question: >-
-      Welchen zulässigen Ölsumpftemperaturbereich hat ein Radialwellendichtring
-      aus FKM-Werkstoff laut Schmierstofftabelle?
+      Welche Ölsumpftemperatur verträgt ein Radialwellendichtring aus FKM?
     expected_sources:
       - document_id: sew-schmierstoffe
         page: 6
@@ -476,8 +443,7 @@ questions:
   - id: q-030
     category: lookup
     question: >-
-      Mit welchem Anziehdrehmoment werden die Messnippel für die
-      Schwingungsmessung am Motor eingeschraubt?
+      Wie fest ziehe ich die Messnippel für die Schwingungsmessung am Motor an?
     expected_sources:
       - document_id: sew-motoren-drn
         page: 64
@@ -490,8 +456,7 @@ questions:
   - id: q-031
     category: lookup
     question: >-
-      Welches Zustandssignal (ZSW1.x) wird gesetzt, wenn eine Störung
-      auftritt, und welches bei einer Warnung?
+      Welches Bit im ZSW1 zeigt beim G120C eine Störung an, und welches eine Warnung?
     expected_sources:
       - document_id: siemens-g120c-liste
         page: 454
@@ -506,8 +471,7 @@ questions:
   - id: q-032
     category: lookup
     question: >-
-      Bei welchen Raumlagen ist bei einem R..-Getriebe die Wälzlager-
-      Laufnummer 37 fettgeschmiert (statt ölgeschmiert)?
+      Bei welchen Raumlagen ist im R..-Getriebe das Wälzlager mit Laufnummer 37 fettgeschmiert?
     expected_sources:
       - document_id: sew-getriebe-ba
         page: 175
@@ -522,8 +486,7 @@ questions:
   - id: q-033
     category: lookup
     question: >-
-      Für welche Umweltbelastung ist der Oberflächenschutz OS3 laut Katalog
-      vorgesehen?
+      Für welche Umweltbelastung ist der Oberflächenschutz OS3 gedacht?
     expected_sources:
       - document_id: sew-katalog-projektierung
         page: 19
@@ -536,6 +499,8 @@ questions:
 
   - id: q-034
     category: multi-hop
+    # Frage mit Dokumentbezug, bewusst behalten, weil die Gegenüberstellung
+    # Katalog gegen Typenschild sonst wegfällt.
     question: >-
       Welche Wirkungsgrad-/Energieeffizienzklasse nennen der Katalog
       (Kapitel 2.3) und das Beispiel-Typenschild in der
@@ -566,10 +531,7 @@ questions:
   - id: q-035
     category: multi-hop
     question: >-
-      Welche der bei SEW-Motoren verfügbaren Temperaturüberwachungs-Optionen
-      (/TF, /TH, /PK, /PT) werden laut der Störungsursache von F07011 im
-      SINAMICS-G120C-Listenhandbuch für die Motorübertemperatur-Auswertung
-      unterstützt?
+      Mein SEW-Motor hat /TF, /TH, /PK oder /PT – welche davon wertet der G120C bei F07011 aus?
     expected_sources:
       - document_id: sew-motoren-drn
         page: 28
@@ -593,10 +555,7 @@ questions:
   - id: q-036
     category: table
     question: >-
-      Laut der Handbuch-Übersicht in siemens-g120c-kurz: in welchem Handbuch
-      findet man die komplette Liste aller Parameter, Warnungen und
-      Störungen, und welche Informationstiefe hat dieses Handbuch im
-      Vergleich zur Kompaktbetriebsanleitung selbst?
+      Wo finde ich die komplette Liste aller Parameter, Warnungen und Störungen des G120C, und wie ausführlich ist sie?
     expected_sources:
       - document_id: siemens-g120c-kurz
         page: 413
@@ -609,3 +568,7 @@ questions:
       Härtefall: testet, ob Retrieval die Handbuch-Übersichtstabelle korrekt
       als Wegweiser liest (zwei unterschiedliche Informationstiefe-Angaben,
       '+++' vs. '++', in derselben Tabelle für verschiedene Handbücher).
+      Beobachtungskandidat für den ersten v2-Lauf: ohne die Dokument-ID kann
+      das Retrieval das Listenhandbuch selbst liefern, das zählt als verfehlt.
+      Zu Recht, denn die erwarteten Fakten ('+++' gegen '++') stehen nur in
+      der Übersichtstabelle der Kompaktbetriebsanleitung.

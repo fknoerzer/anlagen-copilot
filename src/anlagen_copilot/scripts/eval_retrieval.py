@@ -59,6 +59,7 @@ class EvalRun(BaseModel):
 
     run_at: datetime
     commit: str | None
+    eval_set_version: str
     strategy: Strategy
     k: int
     per_document: int | None = None
@@ -250,6 +251,7 @@ def run_retrieval(
     run = EvalRun(
         run_at=datetime.now(UTC),
         commit=_current_commit(),
+        eval_set_version=eval_set.version,
         strategy=strategy,
         k=k,
         per_document=per_document,
