@@ -1,3 +1,4 @@
+import logging
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
@@ -15,6 +16,7 @@ from anlagen_copilot.scripts.eval_retrieval import (
     QuestionResult,
     _append_run,
     _current_commit,
+    _log_summary,
     _recall,
     run_retrieval,
 )
@@ -376,3 +378,38 @@ def test_eval_run_rejects_a_record_without_eval_set_version() -> None:
 
     with pytest.raises(ValueError, match="eval_set_version"):
         EvalRun.model_validate_json(line)
+
+
+def test_run_retrieval_times_retrieval_and_rerank_separately(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A fixed clock pins which duration lands in which field — a swap would pass unseen."""
+    source = _make_source()
+    _patch_run_retrieval(monkeypatch, [make_eval_question()], [[source]])
+    reranked = Reranked(
+        graded=[GradedSource(source=source, grade=3)], input_tokens=1, output_tokens=1
+    )
+    monkeypatch.setattr(eval_retrieval, "rerank", Mock(return_value=reranked))
+    clock = Mock(side_effect=[0.0, 1.5, 1.5, 4.0])
+    monkeypatch.setattr(eval_retrieval, "time", Mock(perf_counter=clock))
+
+    run = run_retrieval(
+        k=1, candidates=1, reranker="test-model", runs_path=tmp_path / "eval_runs.jsonl"
+    )
+
+    assert (run.results[0].retrieval_seconds, run.results[0].rerank_seconds) == (1.5, 2.5)
+
+
+def test_log_summary_reports_the_median_latency_not_the_mean(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """1, 2 and 9 seconds: median 2, mean 4 — one slow call must not set the number."""
+    results = [
+        _make_question_result(id=f"q-{n}", retrieval_seconds=seconds)
+        for n, seconds in enumerate([1.0, 2.0, 9.0])
+    ]
+    caplog.set_level(logging.INFO, logger=eval_retrieval.__name__)
+
+    _log_summary(results, "naive", 5, None, None, None, None, None)
+
+    assert "retrieval 2.00s, rerank —, total 2.00s" in caplog.text

@@ -13,7 +13,9 @@ placed without knowing `k`, the strategy and the embedding model.
 import argparse
 import collections
 import logging
+import statistics
 import subprocess
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -52,6 +54,8 @@ class QuestionResult(BaseModel):
     expected: int
     found: int
     best_score: float
+    retrieval_seconds: float | None = None
+    rerank_seconds: float | None = None
 
 
 class EvalRun(BaseModel):
@@ -174,6 +178,9 @@ def run_retrieval(
 
     with get_connection() as conn:
         for question in eval_set.questions:
+            retrieval_seconds = rerank_seconds = None
+
+            retrieval_start_time = time.perf_counter()
             if per_document is not None:
                 sources = retrieve_per_document(
                     client, question.question, conn, strategy, k=fetch, per_document=per_document
@@ -181,10 +188,18 @@ def run_retrieval(
             else:
                 sources = retrieve_global(client, question.question, conn, strategy, k=fetch)
 
+            retrieval_end_time = time.perf_counter()
+            retrieval_seconds = retrieval_end_time - retrieval_start_time
+
             if reranker is not None:
+                rerank_start_time = time.perf_counter()
                 result = rerank(
                     anthropic_client, question.question, sources, model=reranker, top_n=k
                 )
+                rerank_end_time = time.perf_counter()
+
+                rerank_seconds = rerank_end_time - rerank_start_time
+
                 rerank_input += result.input_tokens
                 rerank_output += result.output_tokens
                 for graded in result.graded:
@@ -215,6 +230,8 @@ def run_retrieval(
                     expected=len(expected),
                     found=len(expected & found),
                     best_score=best,
+                    rerank_seconds=rerank_seconds,
+                    retrieval_seconds=retrieval_seconds,
                 )
             )
 
@@ -266,6 +283,11 @@ def run_retrieval(
     )
     _append_run(run, runs_path)
     return run
+
+
+def _median_seconds(values: list[float]) -> str:
+    """Format the median, or a dash when nothing was timed — `median([])` raises."""
+    return f"{statistics.median(values):.2f}s" if values else "—"
 
 
 def _log_summary(
@@ -327,6 +349,23 @@ def _log_summary(
         _recall(results) * 100,
         sum(r.found for r in answerable),
         sum(r.expected for r in answerable),
+    )
+
+    # Medians, not means: one stalled API call would drag a mean along. The total
+    # is summed per question first, because that sum is what a user waits for.
+    retrieval = [r.retrieval_seconds for r in results if r.retrieval_seconds is not None]
+    reranking = [r.rerank_seconds for r in results if r.rerank_seconds is not None]
+    per_question = [
+        r.retrieval_seconds + (r.rerank_seconds if r.rerank_seconds is not None else 0.0)
+        for r in results
+        if r.retrieval_seconds is not None
+    ]
+    logger.info(
+        "%-13s median per question: retrieval %s, rerank %s, total %s",
+        "latency",
+        _median_seconds(retrieval),
+        _median_seconds(reranking),
+        _median_seconds(per_question),
     )
 
     # The unanswerable questions are the only ones that say where an `answered`

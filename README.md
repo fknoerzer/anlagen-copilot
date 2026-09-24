@@ -46,7 +46,7 @@ Der Reranker kann nur Seiten auswählen, die unter den 20 Kandidaten stehen. Dor
 | Output-Tokens je Frage | — | ~320 |
 | Kosten je Eval-Lauf (alle 36 Fragen) | < 0,01 $ | ~0,62 $ |
 
-Grundlage sind die je Lauf protokollierten Tokenzahlen (560.094 Input, 11.620 Output bei 20 Kandidaten) und der Listenpreis von Claude Haiku 4.5: 1 $ je Mio. Input-, 5 $ je Mio. Output-Tokens. Die Läufe halten bislang nur Tokenzahlen fest, keine Zeiten — eine Latenzangabe wäre geschätzt und fehlt deshalb hier.
+Grundlage sind die je Lauf protokollierten Tokenzahlen (560.094 Input, 11.620 Output bei 20 Kandidaten) und der Listenpreis von Claude Haiku 4.5: 1 $ je Mio. Input-, 5 $ je Mio. Output-Tokens. Eine Latenzangabe fehlt, weil die zugrunde liegenden Läufe keine Zeiten enthalten; der Eval-Lauf erfasst sie je Frage, getrennt nach Suche und Reranking.
 
 Das Reranking ist der teuerste Schritt der Pipeline: Statt eines Embedding-Aufrufs gehen 20 vollständige Handbuchseiten an ein Sprachmodell. Bei Nachschlagefragen, die schon ohne Reranking bei 60–70 % liegen, steht dieser Aufwand in einem schlechteren Verhältnis zum Ertrag als bei Multi-Hop-Fragen. Die Entscheidung könnte künftig je Fragetyp fallen statt pauschal.
 
