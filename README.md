@@ -32,7 +32,7 @@ Am stärksten profitieren Fragen, die zwei Handbücher brauchen:
 
 Beim Reranking holt die Vektorsuche zunächst 20 Kandidaten, ein Sprachmodell (Claude Haiku 4.5) wählt daraus die besten 5.
 
-Beide Spalten sind Spannen über wiederholte Läufe mit gleichen Parametern: die Vektorsuche über zwei Läufe (Commits `9db58dc` und `6e766d3` in `data/eval_runs.jsonl`), das Reranking über drei mit demselben Bewertungsformat (`aab6042`, `4d187b6`, `1f4d839`). Die Läufe liegen auf verschiedenen Commits, deren Änderungen Retrieval und Reranking nicht berührten. Für die Streuung gibt es zwei Quellen: Der HNSW-Index von pgvector sucht approximativ, liefert also nicht garantiert dieselben Kandidaten — das betrifft beide Spalten —, und die Generierung des Rerankers ist nicht deterministisch. Die Spannen je Kategorie stammen aus verschiedenen Läufen und summieren sich deshalb nicht direkt auf die Gesamtspanne.
+Beide Spalten sind Spannen über wiederholte Läufe mit gleichen Parametern: die Vektorsuche über zwei Läufe (Commits `9db58dc` und `6e766d3` in `data/eval_runs.jsonl`), das Reranking über drei mit demselben Bewertungsformat (`aab6042`, `4d187b6`, `1f4d839`). Die Läufe liegen auf verschiedenen Commits, deren Änderungen Retrieval und Reranking nicht berührten. Die Streuung der Reranking-Spalte kommt von der Generierung des Rerankers, die nicht deterministisch ist; die 20 Kandidaten davor holt die Vektorsuche nach heutigem Plan der Datenbank ohne Index, also vollständig. Die Spalte „Nur Vektorsuche“ lief über den HNSW-Index von pgvector, der approximativ sucht und bei einzelnen Fragen weniger als fünf Seiten lieferte. Die Suche läuft inzwischen vollständig und ist damit reproduzierbar ([ADR 011](docs/adr/011-vollstaendige-suche-statt-hnsw.md)). Die Spannen je Kategorie stammen aus verschiedenen Läufen und summieren sich deshalb nicht direkt auf die Gesamtspanne.
 
 Bei Tabellen liegen beide Spannen gleich: dort ist **keine Verbesserung messbar**, der Unterschied bleibt innerhalb der Streuung der Vektorsuche.
 
@@ -75,7 +75,7 @@ Das Beispiel zeigt beide Seiten des Rerankings: Aus 20 Kandidaten holt es die ei
 
 - **Sprache:** Python 3.12+
 - **Package Manager:** [uv](https://docs.astral.sh/uv/)
-- **Vektordatenbank:** PostgreSQL 16 mit [pgvector](https://github.com/pgvector/pgvector) (HNSW-Index, Cosinus-Distanz; die Suche ist approximativ, siehe Hinweis zur Streuung oben)
+- **Vektordatenbank:** PostgreSQL 16 mit [pgvector](https://github.com/pgvector/pgvector) (vollständige Suche mit Cosinus-Distanz, ohne ANN-Index)
 - **Embeddings:** OpenAI `text-embedding-3-large` (1536 Dimensionen)
 - **Reranking & Generierung:** Anthropic Claude (Tool Use für strukturierte Ausgabe; Generierung geplant)
 - **PDF-Extraktion:** pypdf + ftfy (Reparatur fehlerhafter Zeichenkodierungen)
@@ -116,7 +116,7 @@ Die wichtigsten Entscheidungen in einem Satz. Kontext, verworfene Alternativen u
 
 - **Eine Seite = ein Chunk**, damit jede Quelle auf die PDF-Seite genau zitierbar ist. ([ADR 001](docs/adr/001-seite-als-chunk.md))
 - **Chunking-Strategie als Spalte in derselben Tabelle**, damit naive und layoutbewusste Strategie mit einem Parameter vergleichbar sind. ([ADR 002](docs/adr/002-strategie-als-spalte.md))
-- **1536 statt 3072 Embedding-Dimensionen**, weil der HNSW-Index von pgvector höchstens 2000 zulässt. ([ADR 003](docs/adr/003-embedding-dimensionen.md))
+- **1536 statt 3072 Embedding-Dimensionen**, weil der HNSW-Index von pgvector höchstens 2000 zulässt; die Grenze bleibt, damit der Index ohne neue Embeddings zurückkommen kann. ([ADR 003](docs/adr/003-embedding-dimensionen.md))
 - **Reranker-Ausgabe als erzwungener Tool-Call mit Seiten-ID.** Ein Format ohne IDs sparte gut 70 % der Output-Tokens, senkte aber den Anteil gefundener Belegseiten von 67 % auf 58 % (v1). ([ADR 004](docs/adr/004-reranker-ausgabe.md))
 - **Kein stiller Rückfall auf die Reihenfolge der Vektorsuche**, damit kein Eval-Lauf ein Reranking protokolliert, das nicht stattgefunden hat. ([ADR 005](docs/adr/005-kein-stiller-rueckfall.md))
 - **Eine Transaktion pro Dokument**, damit ein abgebrochener Lauf kein Dokument leer oder halb geschrieben zurücklässt. ([ADR 006](docs/adr/006-transaktion-pro-dokument.md))
@@ -124,6 +124,7 @@ Die wichtigsten Entscheidungen in einem Satz. Kontext, verworfene Alternativen u
 - **Jeder Eval-Lauf wird mit seiner Konfiguration protokolliert**, damit sich jede Zahl in dieser README auf einen Lauf zurückführen lässt. ([ADR 008](docs/adr/008-eval-laeufe-protokollieren.md))
 - **PostgreSQL mit pgvector als Vektordatenbank**, damit Vektorsuche, Constraints und die Transaktion pro Dokument in einem System liegen. ([ADR 009](docs/adr/009-pgvector.md))
 - **Kein RAG-Framework**, damit sich jeder Schritt der Pipeline einzeln steuern, testen und messen lässt. ([ADR 010](docs/adr/010-kein-rag-framework.md))
+- **Vollständige Suche statt HNSW-Index**, weil der Index bei 5 Treffern für 3 von 36 Fragen zu wenige Seiten lieferte und bei 1.322 Seiten keine Zeit spart, sobald er zuverlässig sucht (gemessen auf `2ac65fd`). ([ADR 011](docs/adr/011-vollstaendige-suche-statt-hnsw.md))
 
 ## Entwicklung mit Claude Code
 

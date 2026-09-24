@@ -14,6 +14,8 @@ laufen soll (Docling oder Azure Document Intelligence), ist noch offen.
 PostgreSQL 16 mit der Extension pgvector (Image `pgvector/pgvector:pg16`).
 Text, Dokument-ID, Seitennummer, Strategie und Embedding einer Seite liegen in
 derselben Zeile der Tabelle `chunks`, durchsucht über einen HNSW-Index mit Cosinus-Distanz.
+Der Index ist durch [ADR 011](011-vollstaendige-suche-statt-hnsw.md) abgelöst: Die Suche
+läuft vollständig, pgvector bleibt.
 
 ## Alternativen
 

@@ -50,10 +50,13 @@ es ab, ist das der Befund und der Bericht endet dort.
 
 - Die Kategorie `unanswerable` hat `expected: 0` und zählt nicht in den Recall.
 - Eine Differenz unterhalb der Streuung zwischen Läufen derselben Konfiguration ist kein
-  Ergebnis. Bekannte Streuung bei 20 Kandidaten: 24–25 von 36 Belegseiten über drei Läufe
-  (`aab6042`, `4d187b6`, `1f4d839`); nur Vektorsuche mit `k=5`: 18–19 über zwei Läufe
-  (`9db58dc`, `6e766d3`). Quellen der Streuung: nicht deterministische Generierung des
-  Rerankers, approximative HNSW-Suche.
+  Ergebnis. Bekannte Streuung auf Eval-Set v1 bei 20 Kandidaten: 24–25 von 36 Belegseiten
+  über drei Läufe (`aab6042`, `4d187b6`, `1f4d839`); nur Vektorsuche mit `k=5`: 18–19 über
+  zwei Läufe (`9db58dc`, `6e766d3`). Für v2 gibt es noch keine. Quelle der Streuung ist die
+  nicht deterministische Generierung des Rerankers. Die Vektorsuche ist seit
+  [ADR 011](../../../docs/adr/011-vollstaendige-suche-statt-hnsw.md) vollständig und
+  reproduzierbar; Läufe davor mit `k=5` ohne Reranker liefen über den approximativen
+  HNSW-Index und können zu kurze Trefferlisten enthalten.
 - Eine Zahl für README oder ADR wird immer mit ihrem Commit-Hash genannt, und wo mehrere
   Läufe derselben Konfiguration vorliegen, als Spanne
   ([ADR 008](../../../docs/adr/008-eval-laeufe-protokollieren.md)).

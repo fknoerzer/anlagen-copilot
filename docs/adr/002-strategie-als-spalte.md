@@ -22,7 +22,10 @@ eigenen Codepfad. Die Suchfunktionen filtern mit `WHERE strategy = …`.
 
 - Beide Strategien lassen sich mit einem Parameter vergleichen, in der
   Evaluation wie später in der Oberfläche.
-- **Offen:** Der HNSW-Index kennt die Spalte nicht. `WHERE strategy` filtert
+- **Erledigt durch [ADR 011](011-vollstaendige-suche-statt-hnsw.md):** Ohne
+  Index filtert `WHERE strategy` innerhalb der vollständigen Suche. Kommt der
+  Index zurück, gilt der folgende Punkt wieder.
+  Der HNSW-Index kennt die Spalte nicht. `WHERE strategy` filtert
   erst nach dem Index-Scan. Solange nur `naive` in der Tabelle liegt, ist das
   folgenlos. Mit beiden Strategien kann eine Suche weniger oder schlechtere
   Treffer liefern, ohne dass etwas fehlschlägt. Das muss gelöst sein, bevor

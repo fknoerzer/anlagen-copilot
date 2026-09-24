@@ -34,8 +34,11 @@ die Datei nicht selbst an — sonst sicherte der Hook nichts, was nicht schon di
 
 Jede Zahl zur Retrieval-Qualität nennt ihren Lauf über den Commit-Hash aus
 `data/eval_runs.jsonl`, und wo mehrere Läufe derselben Konfiguration vorliegen, die
-Spanne statt eines Einzelwerts: Der Reranker ist nicht deterministisch, die HNSW-Suche
-approximativ ([ADR 008](docs/adr/008-eval-laeufe-protokollieren.md)).
+Spanne statt eines Einzelwerts: Der Reranker ist nicht deterministisch
+([ADR 008](docs/adr/008-eval-laeufe-protokollieren.md)). Die Vektorsuche ist seit
+[ADR 011](docs/adr/011-vollstaendige-suche-statt-hnsw.md) vollständig und damit
+reproduzierbar; ältere Läufe mit `k=5` ohne Reranker liefen über den approximativen
+HNSW-Index.
 
 ## Commits
 
