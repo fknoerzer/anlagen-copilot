@@ -30,3 +30,6 @@ data/raw/*
 !data/eval_runs.jsonl
 TODO.md
 ERLEDIGT.md
+
+# Freigabeschalter für die src/-Sperre (siehe CLAUDE.md)
+.claude/delegate

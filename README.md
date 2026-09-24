@@ -117,7 +117,7 @@ Die wichtigsten Entscheidungen in einem Satz. Kontext, verworfene Alternativen u
 - **Eine Seite = ein Chunk**, damit jede Quelle auf die PDF-Seite genau zitierbar ist. ([ADR 001](docs/adr/001-seite-als-chunk.md))
 - **Chunking-Strategie als Spalte in derselben Tabelle**, damit naive und layoutbewusste Strategie mit einem Parameter vergleichbar sind. ([ADR 002](docs/adr/002-strategie-als-spalte.md))
 - **1536 statt 3072 Embedding-Dimensionen**, weil der HNSW-Index von pgvector höchstens 2000 zulässt. ([ADR 003](docs/adr/003-embedding-dimensionen.md))
-- **Reranker-Ausgabe als erzwungener Tool-Call mit Seiten-ID.** Ein Format ohne IDs sparte gut 70 % der Output-Tokens, senkte aber den Anteil gefundener Belegseiten von 67 % auf 58 %. ([ADR 004](docs/adr/004-reranker-ausgabe.md))
+- **Reranker-Ausgabe als erzwungener Tool-Call mit Seiten-ID.** Ein Format ohne IDs sparte gut 70 % der Output-Tokens, senkte aber den Anteil gefundener Belegseiten von 67 % auf 58 % (v1). ([ADR 004](docs/adr/004-reranker-ausgabe.md))
 - **Kein stiller Rückfall auf die Reihenfolge der Vektorsuche**, damit kein Eval-Lauf ein Reranking protokolliert, das nicht stattgefunden hat. ([ADR 005](docs/adr/005-kein-stiller-rueckfall.md))
 - **Eine Transaktion pro Dokument**, damit ein abgebrochener Lauf kein Dokument leer oder halb geschrieben zurücklässt. ([ADR 006](docs/adr/006-transaktion-pro-dokument.md))
 - **Embedding-Konfiguration vor dem ersten Download prüfen**, damit ein falscher Key oder eine falsche Dimension den Lauf nach einer Sekunde beendet. ([ADR 007](docs/adr/007-konfiguration-vorab-pruefen.md))
@@ -130,6 +130,8 @@ Die wichtigsten Entscheidungen in einem Satz. Kontext, verworfene Alternativen u
 Ziel des Projekts ist, die Mechanik eines RAG-Systems durch Eigenbau zu verstehen. Ingestion, Retrieval, Reranking und Evaluation sind daher von Hand geschrieben; die zugrunde liegenden Entscheidungen sind in den Docstrings begründet.
 
 [Claude Code](https://claude.com/claude-code) kam als Pair Programmer für Reviews, Boilerplate, Testgerüste und Dokumentation zum Einsatz. Nicht für die Bewertung von Messergebnissen: Die Ground Truth des Eval-Sets ist manuell gegen die Quelldokumente verifiziert, Retrieval-Entscheidungen entstanden aus Handproben an Einzelfragen.
+
+Diese Arbeitsteilung ist nicht nur beschrieben, sondern im Werkzeug verankert. Die Regeln stehen in `CLAUDE.md`, die Commit-Konventionen als aufrufbarer Befehl in `.claude/commands/`, und in `.claude/skills/` liegen die Konventionen für Auswertung, Tests und Prompt-Änderungen. Ein PreToolUse-Hook in `.claude/settings.json` lehnt Schreibzugriffe der Editierwerkzeuge auf `src/**` ab. Freigeschaltet wird er nur für einen einzelnen Auftrag: Beginnt der Prompt des Autors mit `delegiere:`, legt ein weiterer Hook eine Freigabedatei an, die ein Stop-Hook am Ende der Antwort wieder löscht. Schreibvorgänge über die Shell deckt der Hook nicht ab: Er sichert gegen Abdriften im Alltag, nicht gegen einen entschlossenen Umweg.
 
 ## Evaluation & Qualitätssicherung
 

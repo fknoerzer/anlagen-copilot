@@ -1,0 +1,50 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if grep -qiE '\"prompt\"[[:space:]]*:[[:space:]]*\"[[:space:]]*delegiere:'; then touch \"$CLAUDE_PROJECT_DIR/.claude/delegate\" && printf '{\"systemMessage\":\"src/-Sperre für diesen Auftrag aufgehoben\"}'; fi",
+            "statusMessage": "Prüfe auf delegiere:"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rm -f \"$CLAUDE_PROJECT_DIR/.claude/delegate\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Edit(src/**)",
+            "command": "test -f \"$CLAUDE_PROJECT_DIR/.claude/delegate\" || printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"src/ ist gesperrt: die Kernlogik schreibt der Autor selbst (siehe CLAUDE.md). Freigabe: Prompt mit delegiere: beginnen\"}}'",
+            "statusMessage": "Prüfe die src/-Sperre"
+          },
+          {
+            "type": "command",
+            "if": "Write(src/**)",
+            "command": "test -f \"$CLAUDE_PROJECT_DIR/.claude/delegate\" || printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"src/ ist gesperrt: die Kernlogik schreibt der Autor selbst (siehe CLAUDE.md). Freigabe: Prompt mit delegiere: beginnen\"}}'",
+            "statusMessage": "Prüfe die src/-Sperre"
+          },
+          {
+            "type": "command",
+            "if": "NotebookEdit(src/**)",
+            "command": "test -f \"$CLAUDE_PROJECT_DIR/.claude/delegate\" || printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"src/ ist gesperrt: die Kernlogik schreibt der Autor selbst (siehe CLAUDE.md). Freigabe: Prompt mit delegiere: beginnen\"}}'",
+            "statusMessage": "Prüfe die src/-Sperre"
+          }
+        ]
+      }
+    ]
+  }
+}
