@@ -60,5 +60,11 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """Build the settings on first actual use, not at import time."""
+    """Build the settings on first use and return the same object afterwards.
+
+    Not at import time, because `Settings()` requires the API keys and the DSN
+    from the environment. Built at import, every module that imports settings
+    would fail wherever no `.env` exists, in CI for instance. The tests clear
+    the cache after setting their environment, so the test values take effect.
+    """
     return Settings()  # type: ignore[call-arg]  # required fields come from env/.env, not kwargs

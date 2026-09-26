@@ -42,7 +42,10 @@ _CODE_PATHS = ("src", "pyproject.toml", "uv.lock")
 
 
 class SourceRank(BaseModel):
-    """Where one expected page landed; `None` means it was not among the pages returned."""
+    """Where one expected page landed in the search and after reranking.
+
+    A rank of `None` means the page was not among the pages returned.
+    """
 
     document_id: str
     page: int
@@ -127,7 +130,11 @@ def _positions(sources: list[Source]) -> dict[tuple[str, int], int]:
 
 
 def _recall(results: list[QuestionResult]) -> float:
-    """Return the found expected sources over all expected, 0.0 if none at all."""
+    """Return the share of expected sources that were found.
+
+    Returns 0.0 when no result expects a source at all, as in a run over
+    unanswerable questions only. Dividing would raise `ZeroDivisionError` there.
+    """
     expected_total = sum(r.expected for r in results)
     if not expected_total:
         return 0.0
@@ -319,7 +326,11 @@ def run_retrieval(
 
 
 def _median_seconds(values: list[float]) -> str:
-    """Format the median, or a dash when nothing was timed — `median([])` raises."""
+    """Format the median of the timings, or a dash when nothing was timed.
+
+    The dash is needed because `statistics.median([])` raises instead of
+    returning a value, and a run without reranking has no rerank timings.
+    """
     return f"{statistics.median(values):.2f}s" if values else "—"
 
 
