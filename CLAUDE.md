@@ -20,8 +20,16 @@ In dieser Reihenfolge antworten:
 5. Zeiger auf die maßgebliche API-Dokumentation.
 6. Vorschlag für den ersten Test, den der Autor selbst schreibt.
 
-Code höchstens als Signatur, nie als Implementierung. Erklärungen gehören in den Chat;
-Docstrings bleiben einzeilig und begründen nur das Nichtoffensichtliche.
+Code höchstens als Signatur, nie als Implementierung. Erklärungen gehören in den Chat.
+
+## Docstrings
+
+- Die erste Zeile sagt in einfachen Worten, was die Funktion tut.
+- In `src/` darf danach je ein Absatz eine nicht offensichtliche Entscheidung mit
+  ihrer Folge begründen, dazu `Raises:`, wenn etwas scheitern kann. Vorbild:
+  `extract_pages()` in `ingest.py`.
+- Einzeilig bleiben Tests und Pydantic-Modelle, deren Schema ans Modell geht: Ihr
+  Docstring wird zur `description` im Schema und bei jedem Aufruf mitgelesen.
 
 ## Ausstieg
 
