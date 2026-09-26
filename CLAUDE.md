@@ -26,7 +26,8 @@ Docstrings bleiben einzeilig und begründen nur das Nichtoffensichtliche.
 ## Ausstieg
 
 `delegiere: <Auftrag>` hebt die Grenze für genau diesen Auftrag auf, danach gilt sie
-wieder. Mechanisch: Beginnt der Prompt mit `delegiere:`, legt ein UserPromptSubmit-Hook
+wieder. Mechanisch: Beginnt der Prompt oder eine seiner Zeilen mit `delegiere:` (die
+IDE-Erweiterung stellt dem Prompt Kontext voran), legt ein UserPromptSubmit-Hook
 `.claude/delegate` an, ein Stop-Hook löscht die Datei am Ende der Antwort. Claude legt
 die Datei nicht selbst an — sonst sicherte der Hook nichts, was nicht schon die Regel sagt.
 

@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if grep -qiE '\"prompt\"[[:space:]]*:[[:space:]]*\"[[:space:]]*delegiere:'; then touch \"$CLAUDE_PROJECT_DIR/.claude/delegate\" && printf '{\"systemMessage\":\"src/-Sperre für diesen Auftrag aufgehoben\"}'; fi",
+            "command": "if grep -qiE '((\"prompt\"[[:space:]]*:[[:space:]]*\")|\\\\n|>)[[:space:]]*delegiere:'; then touch \"$CLAUDE_PROJECT_DIR/.claude/delegate\" && printf '{\"systemMessage\":\"src/-Sperre für diesen Auftrag aufgehoben\"}'; fi",
             "statusMessage": "Prüfe auf delegiere:"
           }
         ]
