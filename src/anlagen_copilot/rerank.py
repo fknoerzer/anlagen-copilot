@@ -154,9 +154,8 @@ def rerank(
 
     message = client.messages.create(
         model=model,
-        # Twenty grades were measured at 315 output tokens, which this exceeds
-        # fourfold. The limit is a ceiling, not a purchase: only the tokens
-        # actually written are billed, so the headroom costs nothing.
+        # 20 grades take about 250 output tokens (`5c36cdb`). Only tokens written
+        # are billed, so the headroom costs nothing.
         max_tokens=128 + 64 * len(candidates),
         system=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": _build_prompt(question, candidates)}],

@@ -125,7 +125,7 @@ Die wichtigsten Entscheidungen in einem Satz. Kontext, verworfene Alternativen u
 - **PostgreSQL mit pgvector als Vektordatenbank**, damit Vektorsuche, Constraints und die Transaktion pro Dokument in einem System liegen. ([ADR 009](docs/adr/009-pgvector.md))
 - **Kein RAG-Framework**, damit sich jeder Schritt der Pipeline einzeln steuern, testen und messen lässt. ([ADR 010](docs/adr/010-kein-rag-framework.md))
 - **Vollständige Suche statt HNSW-Index**, weil der Index bei 5 Treffern für 3 von 36 Fragen zu wenige Seiten lieferte und bei 1.322 Seiten keine Zeit spart, sobald er zuverlässig sucht (gemessen auf `2ac65fd`). ([ADR 011](docs/adr/011-vollstaendige-suche-statt-hnsw.md))
-- **Strukturierte Ausgabe statt erzwungenem Tool-Call**, damit die API das Schema der Noten durchsetzt, statt es nur zu beschreiben. Die Messung gegen den bisherigen Weg steht noch aus. ([ADR 012](docs/adr/012-strukturierte-ausgabe.md))
+- **Strukturierte Ausgabe statt erzwungenem Tool-Call**, damit die API das Schema der Noten durchsetzt, statt es nur zu beschreiben. Gleiche Belegseiten wie mit dem Tool-Call (23–23 von 36 auf `5c36cdb`, v2) bei 22 % weniger Output-Tokens. ([ADR 012](docs/adr/012-strukturierte-ausgabe.md))
 
 ## Entwicklung mit Claude Code
 

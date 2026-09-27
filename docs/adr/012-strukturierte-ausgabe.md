@@ -54,9 +54,15 @@ ADR 004 bleibt unverändert. Die Klammer-Reparatur entfällt.
   geprüft werden.
 - Der erste Aufruf mit einem neuen Schema ist langsamer, weil die API die
   Grammatik kompiliert. Danach ist sie 24 Stunden zwischengespeichert.
-- Geprüft ist bisher nur, dass ein echter Aufruf das Schema annimmt
-  (Probelauf, 2026-09-26).
-- **Offen:** Die Messung. Drei Läufe mit 20 Kandidaten gegen die Spanne 23–23
-  auf `fc391fd`. Erwartung vorher: 23 ± 1 Belegseiten und Output-Tokens um
-  11.400 je Lauf, weil sich die Form der Noten nicht ändert. Das Ergebnis wird
-  hier nachgetragen.
+- Gemessen auf Eval-Set v2 mit 20 Kandidaten, je drei Läufe:
+
+  | | Tool-Call (`fc391fd`) | Strukturierte Ausgabe (`5c36cdb`) |
+  |---|---:|---:|
+  | Belegseiten in den Top 5 | 23–23 / 36 | 23–23 / 36 |
+  | Output-Tokens je Lauf | 11.340–11.480 | 8.928 |
+  | Input-Tokens je Lauf | 562.992 | 550.392 |
+
+  Keine Frage ist gekippt, in allen sechs Läufen werden dieselben Belegseiten
+  gefunden und verfehlt. Die vorher festgehaltene Erwartung (23 ± 1
+  Belegseiten, Output um 11.400) trifft für die Belegseiten zu. Die
+  Output-Tokens liegen 22 % darunter.
