@@ -4,13 +4,12 @@ The second stage after the vector search: the search decides what is a
 candidate, the model reads question and page together and decides what answers.
 """
 
-import json
 import logging
 from typing import Literal
 
-from anthropic import Anthropic
-from anthropic.types import ToolParam, ToolUseBlock
-from pydantic import BaseModel, ConfigDict, field_validator
+from anthropic import Anthropic, transform_schema
+from anthropic.types import JSONOutputFormatParam, TextBlock
+from pydantic import BaseModel, ConfigDict
 
 from anlagen_copilot.retrieval import Source
 
@@ -40,40 +39,11 @@ from an actual answer. Values in tables count as much as running text.
 """
 
 
-_GRADE_TOOL: ToolParam = {
-    "name": "record_grades",
-    "description": "Record how well each numbered page answers the question.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "grades": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "id": {"type": "integer"},
-                        "grade": {"type": "integer", "enum": [0, 1, 2, 3]},
-                    },
-                    "additionalProperties": False,
-                    "required": ["id", "grade"],
-                },
-            }
-        },
-        "required": ["grades"],
-    },
-}
-
-
+# The id is repeated back instead of implied by the position: without it the
+# model graded nearly every page 0 (ADR 004). Kept out of the docstring, which
+# goes into the schema the model reads.
 class Grade(BaseModel):
-    """One grade as the model returns it; `id` is the page's number in the prompt.
-
-    The id is repeated back rather than implied by the position. A flat list of
-    grades was measured and costs under a third of the output tokens — and, in
-    three calls each on the questions run 11 lost (q-007, q-033, q-034), finds
-    4 of 12 expected sources where this shape finds 11 (see `1f4d839`).
-    Naming the page before grading it is what keeps the model from writing out a
-    uniform row of zeroes.
-    """
+    """The grade of one page; id is the number the page carries in the prompt."""
 
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
@@ -82,27 +52,18 @@ class Grade(BaseModel):
 
 
 class _Grades(BaseModel):
-    """The whole tool input, validated in one step — the SDK types it as `object`."""
+    """How well each numbered page answers the question."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     grades: list[Grade]
 
-    @field_validator("grades", mode="before")
-    @classmethod
-    def _parse_text(cls, value: object) -> object:
-        """Parse a list the model wrote as text instead of structuring it.
 
-        Seen in three of eight calls on the longest prompt in the corpus, always
-        with the closing bracket missing. Repairing that one character beats
-        losing a forty-minute run to a formatting slip. A list that breaks off
-        mid-entry still fails here, and should: only the bracket is restored,
-        nothing is guessed.
-        """
-        if not isinstance(value, str):
-            return value
-        text = value.strip().rstrip(",")
-        return json.loads(text if text.endswith("]") else text + "]")
+# Built from the model, so schema and validation cannot drift apart.
+_OUTPUT_FORMAT: JSONOutputFormatParam = {
+    "type": "json_schema",
+    "schema": transform_schema(_Grades),
+}
 
 
 class GradedSource(BaseModel):
@@ -174,17 +135,17 @@ def rerank(
     expected sources, and a prompt holding them would let the model copy the
     answer.
 
-    The tool call is forced, so the grades arrive as structured input rather
-    than as text to parse. An answer that does not fit the schema ends the run:
-    falling back to the vector order would record a measurement that looks like
-    reranking and is not.
+    The grades come back as structured output: the API holds the text to the
+    schema of `_Grades`, so a malformed list cannot arise. The text is validated
+    here rather than through `messages.parse()`, because `parse()` validates
+    before the stop reason can be checked. An answer that does not fit the
+    schema still ends the run: falling back to the vector order would record a
+    measurement that looks like reranking and is not.
 
     Raises:
         ValueError: When `top_n` is below 1, when the model stopped for any
-            reason other than the tool call, or when the response holds no tool
-            call.
-        pydantic.ValidationError: When the grades do not match `Grade`, or
-            arrive as text that does not parse.
+            reason other than finishing, or when the response holds no text.
+        pydantic.ValidationError: When the grades do not match `Grade`.
     """
     if top_n < 1:
         raise ValueError(f"top_n must be at least 1 (pages to keep), got {top_n}")
@@ -199,18 +160,17 @@ def rerank(
         max_tokens=128 + 64 * len(candidates),
         system=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": _build_prompt(question, candidates)}],
-        tools=[_GRADE_TOOL],
-        tool_choice={"type": "tool", "name": "record_grades"},
+        output_config={"format": _OUTPUT_FORMAT},
     )
 
-    if message.stop_reason != "tool_use":
+    if message.stop_reason != "end_turn":
         raise ValueError(f"{model} did not finish its grades (stop reason: {message.stop_reason})")
 
-    block = next((b for b in message.content if isinstance(b, ToolUseBlock)), None)
+    block = next((b for b in message.content if isinstance(b, TextBlock)), None)
     if block is None:
         raise ValueError(f"{model} returned no grades (stop reason: {message.stop_reason})")
 
-    grades = _Grades.model_validate(block.input).grades
+    grades = _Grades.model_validate_json(block.text).grades
     return Reranked(
         graded=_order(candidates, grades, top_n=top_n),
         input_tokens=message.usage.input_tokens,

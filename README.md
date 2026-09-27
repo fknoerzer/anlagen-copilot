@@ -117,7 +117,7 @@ Die wichtigsten Entscheidungen in einem Satz. Kontext, verworfene Alternativen u
 - **Eine Seite = ein Chunk**, damit jede Quelle auf die PDF-Seite genau zitierbar ist. ([ADR 001](docs/adr/001-seite-als-chunk.md))
 - **Chunking-Strategie als Spalte in derselben Tabelle**, damit naive und layoutbewusste Strategie mit einem Parameter vergleichbar sind. ([ADR 002](docs/adr/002-strategie-als-spalte.md))
 - **1536 statt 3072 Embedding-Dimensionen**, weil der HNSW-Index von pgvector höchstens 2000 zulässt; die Grenze bleibt, damit der Index ohne neue Embeddings zurückkommen kann. ([ADR 003](docs/adr/003-embedding-dimensionen.md))
-- **Reranker-Ausgabe als erzwungener Tool-Call mit Seiten-ID.** Ein Format ohne IDs sparte gut 70 % der Output-Tokens, senkte aber den Anteil gefundener Belegseiten von 67 % auf 58 % (v1). ([ADR 004](docs/adr/004-reranker-ausgabe.md))
+- **Reranker-Noten mit Seiten-ID.** Ein Format ohne IDs sparte gut 70 % der Output-Tokens, senkte aber den Anteil gefundener Belegseiten von 67 % auf 58 % (v1). ([ADR 004](docs/adr/004-reranker-ausgabe.md))
 - **Kein stiller Rückfall auf die Reihenfolge der Vektorsuche**, damit kein Eval-Lauf ein Reranking protokolliert, das nicht stattgefunden hat. ([ADR 005](docs/adr/005-kein-stiller-rueckfall.md))
 - **Eine Transaktion pro Dokument**, damit ein abgebrochener Lauf kein Dokument leer oder halb geschrieben zurücklässt. ([ADR 006](docs/adr/006-transaktion-pro-dokument.md))
 - **Embedding-Konfiguration vor dem ersten Download prüfen**, damit ein falscher Key oder eine falsche Dimension den Lauf nach einer Sekunde beendet. ([ADR 007](docs/adr/007-konfiguration-vorab-pruefen.md))
@@ -125,6 +125,7 @@ Die wichtigsten Entscheidungen in einem Satz. Kontext, verworfene Alternativen u
 - **PostgreSQL mit pgvector als Vektordatenbank**, damit Vektorsuche, Constraints und die Transaktion pro Dokument in einem System liegen. ([ADR 009](docs/adr/009-pgvector.md))
 - **Kein RAG-Framework**, damit sich jeder Schritt der Pipeline einzeln steuern, testen und messen lässt. ([ADR 010](docs/adr/010-kein-rag-framework.md))
 - **Vollständige Suche statt HNSW-Index**, weil der Index bei 5 Treffern für 3 von 36 Fragen zu wenige Seiten lieferte und bei 1.322 Seiten keine Zeit spart, sobald er zuverlässig sucht (gemessen auf `2ac65fd`). ([ADR 011](docs/adr/011-vollstaendige-suche-statt-hnsw.md))
+- **Strukturierte Ausgabe statt erzwungenem Tool-Call**, damit die API das Schema der Noten durchsetzt, statt es nur zu beschreiben. Die Messung gegen den bisherigen Weg steht noch aus. ([ADR 012](docs/adr/012-strukturierte-ausgabe.md))
 
 ## Entwicklung mit Claude Code
 

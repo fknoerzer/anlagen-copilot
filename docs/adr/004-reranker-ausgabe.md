@@ -1,5 +1,9 @@
 # ADR 004: Reranker-Ausgabe als erzwungener Tool-Call mit Seiten-ID
 
+> Den Mechanismus löst [ADR 012](012-strukturierte-ausgabe.md) ab: strukturierte
+> Ausgabe statt erzwungenem Tool-Call, ohne Klammer-Reparatur. Das Format mit
+> Seiten-ID und die Messung dazu gelten weiter.
+
 ## Kontext
 
 Der Reranker bewertet bis zu 20 Kandidatenseiten mit einer Relevanzstufe von 0
