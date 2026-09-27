@@ -3,8 +3,8 @@ from typing import cast
 
 import pytest
 from anthropic import Anthropic
-from anthropic.types import Message, StopReason, TextBlock, ToolUseBlock, Usage
-from helpers import was_logged
+from anthropic.types import Message, StopReason, TextBlock, ToolUseBlock
+from helpers import FakeAnthropic, make_message, was_logged
 from pydantic import ValidationError
 
 from anlagen_copilot.rerank import _OUTPUT_FORMAT, GradedSource, rerank
@@ -14,36 +14,8 @@ from anlagen_copilot.retrieval import Source
 NO_CLIENT = cast(Anthropic, None)
 
 
-class _FakeMessages:
-    """Returns a prepared answer and keeps the request's kwargs."""
-
-    def __init__(self, message: Message) -> None:
-        self._message = message
-        self.kwargs: dict[str, object] = {}
-
-    def create(self, **kwargs: object) -> Message:
-        self.kwargs = kwargs
-        return self._message
-
-
-class _FakeClient:
-    """A class, not a MagicMock, so a misspelt attribute raises."""
-
-    def __init__(self, message: Message) -> None:
-        self.messages = _FakeMessages(message)
-
-
 def _message(grades: object, *, stop_reason: StopReason = "end_turn") -> Message:
-    """Real SDK types: `rerank()` finds the block with `isinstance`."""
-    return Message(
-        id="msg_test",
-        model="claude-test",
-        role="assistant",
-        type="message",
-        stop_reason=stop_reason,
-        content=[TextBlock(type="text", text=json.dumps({"grades": grades}), citations=None)],
-        usage=Usage(input_tokens=100, output_tokens=20),
-    )
+    return make_message(json.dumps({"grades": grades}), stop_reason=stop_reason)
 
 
 def _candidates() -> list[Source]:
@@ -72,7 +44,7 @@ def test_rerank_without_candidates_makes_no_call() -> None:
 
 
 def test_rerank_orders_by_grade_then_by_vector_score() -> None:
-    client = _FakeClient(
+    client = FakeAnthropic(
         _message([{"id": 1, "grade": 1}, {"id": 2, "grade": 1}, {"id": 3, "grade": 3}])
     )
 
@@ -84,7 +56,7 @@ def test_rerank_orders_by_grade_then_by_vector_score() -> None:
 
 
 def test_rerank_keeps_only_top_n() -> None:
-    client = _FakeClient(
+    client = FakeAnthropic(
         _message([{"id": 1, "grade": 0}, {"id": 2, "grade": 3}, {"id": 3, "grade": 2}])
     )
 
@@ -95,7 +67,7 @@ def test_rerank_keeps_only_top_n() -> None:
 
 def test_rerank_numbers_the_pages_from_one_and_requests_the_schema() -> None:
     """An off-by-one still yields a valid result; only the request shows it."""
-    client = _FakeClient(
+    client = FakeAnthropic(
         _message([{"id": 1, "grade": 3}, {"id": 2, "grade": 0}, {"id": 3, "grade": 0}])
     )
 
@@ -114,7 +86,7 @@ def test_rerank_numbers_the_pages_from_one_and_requests_the_schema() -> None:
 
 def test_rerank_gives_an_ungraded_page_zero_and_warns(caplog: pytest.LogCaptureFixture) -> None:
     """Id 99 matches no page and is ignored."""
-    client = _FakeClient(_message([{"id": 3, "grade": 2}, {"id": 99, "grade": 3}]))
+    client = FakeAnthropic(_message([{"id": 3, "grade": 2}, {"id": 99, "grade": 3}]))
 
     with caplog.at_level("WARNING"):
         result = rerank(cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=3)
@@ -129,7 +101,7 @@ def test_rerank_rejects_an_answer_cut_off_by_max_tokens() -> None:
     message = _message([])
     message.stop_reason = "max_tokens"
     message.content = [TextBlock(type="text", text='{"grades": [{"id": 1, "gra', citations=None)]
-    client = _FakeClient(message)
+    client = FakeAnthropic(message)
 
     with pytest.raises(ValueError, match="max_tokens"):
         rerank(cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=3)
@@ -138,14 +110,14 @@ def test_rerank_rejects_an_answer_cut_off_by_max_tokens() -> None:
 def test_rerank_rejects_a_response_without_text() -> None:
     message = _message([])
     message.content = [ToolUseBlock(id="toolu_test", name="x", type="tool_use", input={})]
-    client = _FakeClient(message)
+    client = FakeAnthropic(message)
 
     with pytest.raises(ValueError, match="no grades"):
         rerank(cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=3)
 
 
 def test_rerank_rejects_a_grade_outside_zero_to_three() -> None:
-    client = _FakeClient(
+    client = FakeAnthropic(
         _message([{"id": 1, "grade": 1}, {"id": 2, "grade": 6}, {"id": 3, "grade": 3}])
     )
 

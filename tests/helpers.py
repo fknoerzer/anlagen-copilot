@@ -14,6 +14,7 @@ from typing import cast
 
 import httpx
 import pytest
+from anthropic.types import ContentBlock, Message, StopReason, TextBlock, Usage
 from openai import AuthenticationError, BadRequestError, OpenAI
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
@@ -219,3 +220,40 @@ def fake_embed(client: OpenAI, text: str) -> list[float]:
     if text == "zu lang":
         raise REJECTED
     return [0.5] * 4
+
+
+class _FakeMessages:
+    """Returns a prepared answer and keeps the request's kwargs."""
+
+    def __init__(self, message: Message) -> None:
+        self._message = message
+        self.kwargs: dict[str, object] = {}
+
+    def create(self, **kwargs: object) -> Message:
+        self.kwargs = kwargs
+        return self._message
+
+
+class FakeAnthropic:
+    """Stands in for `Anthropic`; a class, not a MagicMock, so a misspelt attribute raises."""
+
+    def __init__(self, message: Message) -> None:
+        self.messages = _FakeMessages(message)
+
+
+def make_message(
+    content: str | Sequence[ContentBlock], *, stop_reason: StopReason = "end_turn"
+) -> Message:
+    """A real SDK `Message`; a string becomes one text block, as structured output returns."""
+    blocks: list[ContentBlock] = (
+        [TextBlock(type="text", text=content)] if isinstance(content, str) else list(content)
+    )
+    return Message(
+        id="msg_test",
+        model="claude-test",
+        role="assistant",
+        type="message",
+        stop_reason=stop_reason,
+        content=blocks,
+        usage=Usage(input_tokens=100, output_tokens=20),
+    )
