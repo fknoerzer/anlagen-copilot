@@ -21,7 +21,7 @@ from pathlib import Path
 
 from anthropic import Anthropic
 from openai import OpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from anlagen_copilot.db import get_connection
 from anlagen_copilot.eval import load_eval
@@ -53,7 +53,7 @@ class SourceRank(BaseModel):
     rerank_rank: int | None = None
 
 
-class QuestionResult(BaseModel):
+class RetrievalResult(BaseModel):
     """What one question produced, kept per question rather than only summed.
 
     The aggregates can be recomputed from these; the reverse is not true.
@@ -61,6 +61,7 @@ class QuestionResult(BaseModel):
     question got worse is what actually guides the next piece of work.
     """
 
+    model_config = ConfigDict(extra="forbid", frozen=True)
     id: str
     category: str
     expected: int
@@ -71,9 +72,10 @@ class QuestionResult(BaseModel):
     source_ranks: list[SourceRank] | None = None
 
 
-class EvalRun(BaseModel):
+class RetrievalRun(BaseModel):
     """One run, with the configuration that makes its numbers comparable."""
 
+    model_config = ConfigDict(extra="forbid", frozen=True)
     run_at: datetime
     commit: str | None
     eval_set_version: str
@@ -87,7 +89,7 @@ class EvalRun(BaseModel):
     embedding_model: str
     embedding_dimensions: int
     recall: float
-    results: list[QuestionResult]
+    results: list[RetrievalResult]
 
 
 def _current_commit(repo: Path = PROJECT_ROOT) -> str | None:
@@ -129,7 +131,7 @@ def _positions(sources: list[Source]) -> dict[tuple[str, int], int]:
     return {(s.document_id, s.page): place for place, s in enumerate(sources, start=1)}
 
 
-def _recall(results: list[QuestionResult]) -> float:
+def _recall(results: list[RetrievalResult]) -> float:
     """Return the share of expected sources that were found.
 
     Returns 0.0 when no result expects a source at all, as in a run over
@@ -141,7 +143,7 @@ def _recall(results: list[QuestionResult]) -> float:
     return sum(r.found for r in results) / expected_total
 
 
-def _append_run(run: EvalRun, path: Path) -> None:
+def _append_run(run: RetrievalRun, path: Path) -> None:
     """Append one run as a single JSON line.
 
     One record per line is the whole point of the format, so the JSON stays
@@ -161,7 +163,7 @@ def run_retrieval(
     candidates: int | None = None,
     reranker: str | None = None,
     runs_path: Path = DEFAULT_EVAL_RUNS_PATH,
-) -> EvalRun:
+) -> RetrievalRun:
     """Run every eval question through retrieval and append the outcome to `runs_path`.
 
     One connection for the whole set: the questions are independent, and opening
@@ -195,7 +197,7 @@ def run_retrieval(
     client = OpenAI(api_key=settings.openai_api_key.get_secret_value())
     anthropic_client = Anthropic(api_key=settings.anthropic_api_key.get_secret_value())
     fetch = k if candidates is None else candidates
-    results: list[QuestionResult] = []
+    results: list[RetrievalResult] = []
     rerank_input = rerank_output = 0
 
     with get_connection() as conn:
@@ -263,7 +265,7 @@ def run_retrieval(
             # change its meaning between runs.
             best = max((s.score for s in sources), default=0.0)
             results.append(
-                QuestionResult(
+                RetrievalResult(
                     id=question.id,
                     category=question.category,
                     expected=len(expected),
@@ -305,7 +307,7 @@ def run_retrieval(
         results, strategy, k, per_document, candidates, reranker, input_tokens, output_tokens
     )
 
-    run = EvalRun(
+    run = RetrievalRun(
         run_at=datetime.now(UTC),
         commit=_current_commit(),
         eval_set_version=eval_set.version,
@@ -335,7 +337,7 @@ def _median_seconds(values: list[float]) -> str:
 
 
 def _log_summary(
-    results: list[QuestionResult],
+    results: list[RetrievalResult],
     strategy: Strategy,
     k: int,
     per_document: int | None,
@@ -352,7 +354,7 @@ def _log_summary(
     all. Both are broken down by category, because averaging `lookup` and
     `diagram` into one number hides what the eval set was built to show.
     """
-    per_category: dict[str, list[QuestionResult]] = collections.defaultdict(list)
+    per_category: dict[str, list[RetrievalResult]] = collections.defaultdict(list)
     for r in results:
         if r.expected:
             per_category[r.category].append(r)
@@ -431,7 +433,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # `Strategy` is a type hint, not a runtime check. A mistyped value would
     # filter on a strategy with no rows, score a recall of 0.0, and fail only
-    # when pydantic builds the `EvalRun` — after all 36 questions have been
+    # when pydantic builds the `RetrievalRun` — after all 36 questions have been
     # embedded and queried.
     parser.add_argument(
         "--strategy", default="naive", choices=("naive", "advanced"), help="which index to query"

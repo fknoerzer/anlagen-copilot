@@ -12,8 +12,8 @@ from anlagen_copilot.rerank import GradedSource, Reranked
 from anlagen_copilot.retrieval import Source
 from anlagen_copilot.scripts import eval_retrieval
 from anlagen_copilot.scripts.eval_retrieval import (
-    EvalRun,
-    QuestionResult,
+    RetrievalResult,
+    RetrievalRun,
     _append_run,
     _current_commit,
     _log_summary,
@@ -65,8 +65,8 @@ def _make_repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def _make_question_result(**overrides: object) -> QuestionResult:
-    """Builds a valid QuestionResult, mandatory fields as placeholders.
+def _make_retrieval_result(**overrides: object) -> RetrievalResult:
+    """Builds a valid RetrievalResult, mandatory fields as placeholders.
 
     `expected` and `found` belong at the call site of every recall assertion:
     they are what the number under test is computed from, and a default taking
@@ -82,11 +82,11 @@ def _make_question_result(**overrides: object) -> QuestionResult:
         "best_score": 0.7,
     }
     defaults.update(overrides)
-    return QuestionResult.model_validate(defaults)
+    return RetrievalResult.model_validate(defaults)
 
 
-def _make_eval_run(**overrides: object) -> EvalRun:
-    """Builds a valid EvalRun, mandatory fields as placeholders.
+def _make_eval_run(**overrides: object) -> RetrievalRun:
+    """Builds a valid RetrievalRun, mandatory fields as placeholders.
 
     `recall` and `results` are independent fields — nothing in the model ties
     the number to the entries. The defaults are picked to agree anyway (one
@@ -102,10 +102,10 @@ def _make_eval_run(**overrides: object) -> EvalRun:
         "embedding_model": "test-embedding-model",
         "embedding_dimensions": 4,
         "recall": 0.5,
-        "results": [_make_question_result(expected=2, found=1)],
+        "results": [_make_retrieval_result(expected=2, found=1)],
     }
     defaults.update(overrides)
-    return EvalRun.model_validate(defaults)
+    return RetrievalRun.model_validate(defaults)
 
 
 def _make_source(**overrides: object) -> Source:
@@ -186,23 +186,23 @@ def test_current_commit_is_none_when_git_is_not_installed(monkeypatch: pytest.Mo
 
 def test_recall_is_one_when_every_source_is_found() -> None:
     results = [
-        _make_question_result(expected=1, found=1),
-        _make_question_result(expected=2, found=2),
+        _make_retrieval_result(expected=1, found=1),
+        _make_retrieval_result(expected=2, found=2),
     ]
 
     assert _recall(results) == 1.0
 
 
 def test_recall_is_zero_when_no_source_is_expected() -> None:
-    results = [_make_question_result(expected=0, found=0)]
+    results = [_make_retrieval_result(expected=0, found=0)]
 
     assert _recall(results) == 0.0
 
 
 def test_recall_sums_sources_before_dividing() -> None:
     results = [
-        _make_question_result(expected=1, found=1),
-        _make_question_result(expected=2, found=1),
+        _make_retrieval_result(expected=1, found=1),
+        _make_retrieval_result(expected=2, found=1),
     ]
 
     assert _recall(results) == 2 / 3
@@ -220,7 +220,7 @@ def test_append_run_keeps_the_earlier_run(tmp_path: Path) -> None:
     lines = path.read_text(encoding="utf-8").splitlines()
 
     assert len(lines) == 2
-    assert [EvalRun.model_validate_json(line) for line in lines] == [first_run, second_run]
+    assert [RetrievalRun.model_validate_json(line) for line in lines] == [first_run, second_run]
 
 
 def test_append_run_round_trips_non_ascii(tmp_path: Path) -> None:
@@ -232,7 +232,7 @@ def test_append_run_round_trips_non_ascii(tmp_path: Path) -> None:
 
     lines = path.read_text(encoding="utf-8").splitlines()
 
-    assert [EvalRun.model_validate_json(line) for line in lines] == [run]
+    assert [RetrievalRun.model_validate_json(line) for line in lines] == [run]
 
 
 def test_run_retrieval_scores_each_question_against_its_expected_sources(
@@ -258,7 +258,7 @@ def test_run_retrieval_scores_each_question_against_its_expected_sources(
         ("q-2", 1, 0, 0.4),
     ]
     assert run.recall == 0.5
-    assert EvalRun.model_validate_json(runs_path.read_text(encoding="utf-8").strip()) == run
+    assert RetrievalRun.model_validate_json(runs_path.read_text(encoding="utf-8").strip()) == run
 
 
 def test_run_retrieval_leaves_the_recall_alone_for_an_unanswerable_question(
@@ -377,7 +377,7 @@ def test_eval_run_rejects_a_record_without_eval_set_version() -> None:
     line = _make_eval_run().model_dump_json(exclude={"eval_set_version"})
 
     with pytest.raises(ValueError, match="eval_set_version"):
-        EvalRun.model_validate_json(line)
+        RetrievalRun.model_validate_json(line)
 
 
 def test_run_retrieval_times_retrieval_and_rerank_separately(
@@ -405,7 +405,7 @@ def test_log_summary_reports_the_median_latency_not_the_mean(
 ) -> None:
     """1, 2 and 9 seconds: median 2, mean 4 — one slow call must not set the number."""
     results = [
-        _make_question_result(id=f"q-{n}", retrieval_seconds=seconds)
+        _make_retrieval_result(id=f"q-{n}", retrieval_seconds=seconds)
         for n, seconds in enumerate([1.0, 2.0, 9.0])
     ]
     caplog.set_level(logging.INFO, logger=eval_retrieval.__name__)

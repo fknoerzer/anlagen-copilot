@@ -7,7 +7,7 @@ description: Verändert den Reranker-Prompt in kontrollierten Durchgängen und m
 
 ## Voraussetzung, sonst kein Lauf
 
-**Die Variante muss protokollierbar sein.** `EvalRun` in `src/anlagen_copilot/eval.py` hat
+**Die Variante muss protokollierbar sein.** `RetrievalRun` in `src/anlagen_copilot/scripts/eval_retrieval.py` hat
 kein Feld für die Prompt-Variante. Ohne ein solches Feld — etwa ein Hash des System-Prompts
 — ist ein Lauf nachträglich nicht der Variante zuzuordnen, und die Messreihe wird
 wertlos. Das Feld ergänzt der Autor (`src/` ist gesperrt); vorher wird kein Lauf gestartet.
