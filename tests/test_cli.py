@@ -29,7 +29,7 @@ def _patch_main(
     """
     monkeypatch.setattr(cli, "setup_logging", Mock())
     monkeypatch.setattr(cli, "load_corpus", Mock(return_value=make_corpus(documents, tmp_path)))
-    monkeypatch.setattr(cli, "OpenAI", Mock())
+    monkeypatch.setattr(cli, "get_openai_client", Mock())
     monkeypatch.setattr(cli, "check_embedding_config", Mock())
     monkeypatch.setattr(cli, "get_connection", MagicMock())
     monkeypatch.setattr(cli, "download_document", Mock())

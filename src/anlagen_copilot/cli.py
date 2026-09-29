@@ -7,8 +7,7 @@ bookkeeping over the run as a whole.
 
 import logging
 
-from openai import OpenAI
-
+from anlagen_copilot.clients import get_openai_client
 from anlagen_copilot.corpus import load_corpus
 from anlagen_copilot.db import get_connection
 from anlagen_copilot.embeddings import check_embedding_config
@@ -63,7 +62,7 @@ def main() -> None:
         len(corpus.documents),
         get_settings().ingest_strategy,
     )
-    client = OpenAI(api_key=get_settings().openai_api_key.get_secret_value())
+    client = get_openai_client()
     check_embedding_config(client)
     skipped_documents = []
     incomplete_documents = []
