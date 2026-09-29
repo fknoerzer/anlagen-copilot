@@ -7,6 +7,7 @@ from unittest.mock import ANY, MagicMock, Mock, call
 import pytest
 from helpers import make_eval_question
 
+from anlagen_copilot import pipeline
 from anlagen_copilot.eval import EvalQuestion, EvalSet
 from anlagen_copilot.rerank import GradedSource, Reranked
 from anlagen_copilot.retrieval import Source
@@ -135,19 +136,20 @@ def _patch_run_retrieval(
     fails with StopIteration instead of reusing a result.
 
     Both retrieval functions get the same mock, so a test picks the path through
-    `per_document` and reads the calls off one object either way.
+    `per_document` and reads the calls off one object either way. They are
+    patched in `pipeline`, where `retrieve_pages()` looks them up.
 
     Settings stay real — `conftest` provides them, and `run_retrieval()` records
     them in the run, which a mock would only echo back.
     """
     eval_set = EvalSet(version="v-test", questions=questions)
     monkeypatch.setattr(eval_retrieval, "load_eval", Mock(return_value=eval_set))
-    monkeypatch.setattr(eval_retrieval, "OpenAI", Mock())
-    monkeypatch.setattr(eval_retrieval, "Anthropic", Mock())
+    monkeypatch.setattr(eval_retrieval, "get_openai_client", Mock())
+    monkeypatch.setattr(eval_retrieval, "get_anthropic_client", Mock())
     monkeypatch.setattr(eval_retrieval, "get_connection", MagicMock())
     retrieve = Mock(side_effect=results)
-    monkeypatch.setattr(eval_retrieval, "retrieve_global", retrieve)
-    monkeypatch.setattr(eval_retrieval, "retrieve_per_document", retrieve)
+    monkeypatch.setattr(pipeline, "retrieve_global", retrieve)
+    monkeypatch.setattr(pipeline, "retrieve_per_document", retrieve)
     return retrieve
 
 
@@ -336,7 +338,7 @@ def test_run_retrieval_regrades_the_candidates_and_keeps_k(
         graded=[GradedSource(source=hit, grade=3)], input_tokens=1200, output_tokens=80
     )
     rerank = Mock(return_value=reranked)
-    monkeypatch.setattr(eval_retrieval, "rerank", rerank)
+    monkeypatch.setattr(pipeline, "rerank", rerank)
 
     run = run_retrieval(
         k=1, candidates=2, reranker="test-model", runs_path=tmp_path / "eval_runs.jsonl"
@@ -389,9 +391,9 @@ def test_run_retrieval_times_retrieval_and_rerank_separately(
     reranked = Reranked(
         graded=[GradedSource(source=source, grade=3)], input_tokens=1, output_tokens=1
     )
-    monkeypatch.setattr(eval_retrieval, "rerank", Mock(return_value=reranked))
+    monkeypatch.setattr(pipeline, "rerank", Mock(return_value=reranked))
     clock = Mock(side_effect=[0.0, 1.5, 1.5, 4.0])
-    monkeypatch.setattr(eval_retrieval, "time", Mock(perf_counter=clock))
+    monkeypatch.setattr(pipeline, "time", Mock(perf_counter=clock))
 
     run = run_retrieval(
         k=1, candidates=1, reranker="test-model", runs_path=tmp_path / "eval_runs.jsonl"
@@ -446,7 +448,7 @@ def test_run_retrieval_keeps_the_search_rank_that_reranking_overwrites(
     hit = _make_source(page=1, score=0.5)
     _patch_run_retrieval(monkeypatch, [make_eval_question()], [[miss, hit]])
     reranked = Reranked(graded=[GradedSource(source=hit, grade=3)], input_tokens=1, output_tokens=1)
-    monkeypatch.setattr(eval_retrieval, "rerank", Mock(return_value=reranked))
+    monkeypatch.setattr(pipeline, "rerank", Mock(return_value=reranked))
 
     run = run_retrieval(
         k=1, candidates=2, reranker="test-model", runs_path=tmp_path / "eval_runs.jsonl"

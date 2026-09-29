@@ -15,20 +15,19 @@ import collections
 import logging
 import statistics
 import subprocess
-import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
-from anthropic import Anthropic
-from openai import OpenAI
 from pydantic import BaseModel, ConfigDict
 
+from anlagen_copilot.clients import get_anthropic_client, get_openai_client
 from anlagen_copilot.db import get_connection
 from anlagen_copilot.eval import load_eval
 from anlagen_copilot.logging_setup import setup_logging
 from anlagen_copilot.paths import DATA_DIR, PROJECT_ROOT
-from anlagen_copilot.rerank import rerank
-from anlagen_copilot.retrieval import Source, retrieve_global, retrieve_per_document
+from anlagen_copilot.pipeline import retrieve_pages
+from anlagen_copilot.retrieval import Source
 from anlagen_copilot.settings import Strategy, get_settings
 
 logger = logging.getLogger(__name__)
@@ -63,7 +62,7 @@ class RetrievalResult(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
     id: str
-    category: str
+    category: Literal["lookup", "table", "diagram", "multi-hop", "unanswerable"]
     expected: int
     found: int
     best_score: float
@@ -194,51 +193,33 @@ def run_retrieval(
 
     eval_set = load_eval()
     settings = get_settings()
-    client = OpenAI(api_key=settings.openai_api_key.get_secret_value())
-    anthropic_client = Anthropic(api_key=settings.anthropic_api_key.get_secret_value())
-    fetch = k if candidates is None else candidates
+    openai_client = get_openai_client()
+    anthropic_client = get_anthropic_client()
+
     results: list[RetrievalResult] = []
     rerank_input = rerank_output = 0
 
     with get_connection() as conn:
         for question in eval_set.questions:
-            retrieval_seconds = rerank_seconds = None
+            retrieved = retrieve_pages(
+                openai_client,
+                anthropic_client,
+                question.question,
+                conn,
+                strategy,
+                k=k,
+                per_document=per_document,
+                candidates=candidates,
+                reranker=reranker,
+            )
+            sources = retrieved.pages
+            rerank_input += retrieved.rerank_input_tokens
+            rerank_output += retrieved.rerank_output_tokens
 
-            retrieval_start_time = time.perf_counter()
-            if per_document is not None:
-                sources = retrieve_per_document(
-                    client, question.question, conn, strategy, k=fetch, per_document=per_document
-                )
-            else:
-                sources = retrieve_global(client, question.question, conn, strategy, k=fetch)
-
-            retrieval_end_time = time.perf_counter()
-            retrieval_seconds = retrieval_end_time - retrieval_start_time
-            # Taken before reranking overwrites `sources`, else the search's order is lost.
-            retrieval_positions = _positions(sources)
-            rerank_positions: dict[tuple[str, int], int] | None = None
-
-            if reranker is not None:
-                rerank_start_time = time.perf_counter()
-                result = rerank(
-                    anthropic_client, question.question, sources, model=reranker, top_n=k
-                )
-                rerank_end_time = time.perf_counter()
-
-                rerank_seconds = rerank_end_time - rerank_start_time
-
-                rerank_input += result.input_tokens
-                rerank_output += result.output_tokens
-                for graded in result.graded:
-                    logger.debug(
-                        "%s: grade %d %s p.%d",
-                        question.id,
-                        graded.grade,
-                        graded.source.document_id,
-                        graded.source.page,
-                    )
-                sources = [graded.source for graded in result.graded]
-                rerank_positions = _positions(sources)
+            retrieval_positions = _positions(retrieved.candidates)
+            # None without a reranker: `rerank_rank` must say "not reranked", not
+            # repeat the search's rank.
+            rerank_positions = None if reranker is None else _positions(retrieved.pages)
 
             for rank, s in enumerate(sources, start=1):
                 logger.debug(
@@ -271,8 +252,8 @@ def run_retrieval(
                     expected=len(expected),
                     found=len(expected & found),
                     best_score=best,
-                    rerank_seconds=rerank_seconds,
-                    retrieval_seconds=retrieval_seconds,
+                    rerank_seconds=retrieved.rerank_seconds,
+                    retrieval_seconds=retrieved.retrieval_seconds,
                     source_ranks=source_ranks,
                 )
             )
