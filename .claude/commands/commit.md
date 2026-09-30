@@ -41,8 +41,9 @@ hervorgeht — eine Messung, ein beobachteter Fehlschlag, eine verworfene
 Alternative —, dann gehört genau der ins Subject. Das ist der Teil, den später
 niemand mehr rekonstruieren kann.
 
-**Type-Wahl in diesem Repo.** Neue Zeilen in `data/eval_runs.jsonl` sind `chore`
-(„record the ..."), nicht `feat` — eine Messung ist kein Feature. Reine Tests
+**Type-Wahl in diesem Repo.** Neue Zeilen in `data/retrieval/eval_runs.jsonl`
+oder `data/generation/eval_runs.jsonl` sind `chore` („record the ..."), nicht
+`feat` — eine Messung ist kein Feature. Reine Tests
 sind `test`, auch wenn dabei eine Kleinigkeit im Produktivcode mit geradegezogen
 wurde; ändert sich dabei Verhalten, sind es zwei Commits.
 

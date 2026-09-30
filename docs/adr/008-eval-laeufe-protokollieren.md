@@ -8,7 +8,7 @@ gewesen.
 
 ## Entscheidung
 
-Jeder Lauf wird als eine Zeile an `data/eval_runs.jsonl` angehängt: Zeitstempel,
+Jeder Lauf wird als eine Zeile an `data/retrieval/eval_runs.jsonl` angehängt: Zeitstempel,
 Commit-Hash, Strategie, `k`, Begrenzung pro Dokument, Kandidatenzahl,
 Reranker-Modell, Embedding-Modell und -Dimension, Token-Verbrauch und die
 Ergebnisse pro Frage. Jede Zeile ist ein validiertes Pydantic-Modell

@@ -27,7 +27,12 @@ data/*
 data/raw/*
 !data/raw/corpus.yaml
 !data/eval_set.yaml
-!data/eval_runs.jsonl
+!data/retrieval/
+data/retrieval/*
+!data/retrieval/eval_runs.jsonl
+!data/generation/
+data/generation/*
+!data/generation/eval_runs.jsonl
 TODO.md
 ERLEDIGT.md
 

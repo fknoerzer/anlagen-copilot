@@ -4,7 +4,7 @@ Retrieval only — no generation. What is measured here is whether the pages an
 answer would have to cite come back at all; whatever a model does with them
 afterwards can only be worse than that ceiling.
 
-Every run appends one line to `data/eval_runs.jsonl`. A single number says
+Every run appends one line to `data/retrieval/eval_runs.jsonl`. A single number says
 little — the value is the series, and a series only means something if the
 configuration that produced it travels alongside: a recall of 0.5 cannot be
 placed without knowing `k`, the strategy and the embedding model.
@@ -31,7 +31,7 @@ from anlagen_copilot.settings import Strategy, get_settings
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_EVAL_RUNS_PATH = DATA_DIR / "eval_runs.jsonl"
+DEFAULT_RETRIEVAL_RUNS_PATH = DATA_DIR / "retrieval/eval_runs.jsonl"
 
 
 class SourceRank(BaseModel):
@@ -109,7 +109,7 @@ def run_retrieval(
     per_document: int | None = None,
     candidates: int | None = None,
     reranker: str | None = None,
-    runs_path: Path = DEFAULT_EVAL_RUNS_PATH,
+    runs_path: Path = DEFAULT_RETRIEVAL_RUNS_PATH,
 ) -> RetrievalRun:
     """Run every eval question through retrieval and append the outcome to `runs_path`.
 

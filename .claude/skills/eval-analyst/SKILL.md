@@ -1,6 +1,6 @@
 ---
 name: eval-analyst
-description: Wertet Läufe aus data/eval_runs.jsonl aus: Recall gesamt und je Kategorie, die Differenz zweier Läufe und die Fragen, die gekippt sind. Nutze diesen Skill, wenn nach dem Ergebnis eines Eval-Laufs gefragt wird, zwei Läufe verglichen werden sollen, nach der Streuung zwischen Läufen derselben Konfiguration gefragt wird, oder eine Zahl für die README oder einen ADR belegt werden muss.
+description: Wertet Läufe aus data/retrieval/eval_runs.jsonl aus: Recall gesamt und je Kategorie, die Differenz zweier Läufe und die Fragen, die gekippt sind. Nutze diesen Skill, wenn nach dem Ergebnis eines Eval-Laufs gefragt wird, zwei Läufe verglichen werden sollen, nach der Streuung zwischen Läufen derselben Konfiguration gefragt wird, oder eine Zahl für die README oder einen ADR belegt werden muss.
 ---
 
 # Eval-Analyst
@@ -10,7 +10,7 @@ Zahlen und Abweichungen, keine Interpretation. Was die Zahlen bedeuten, entschei
 ## Eingabe
 
 Ein Lauf oder zwei, benannt über **Commit-Hash** oder **`run_at`**. Niemals über eine
-Zeilennummer: Die Zeilen in `data/eval_runs.jsonl` tragen keine Nummer, eine Angabe wie
+Zeilennummer: Die Zeilen in `data/retrieval/eval_runs.jsonl` tragen keine Nummer, eine Angabe wie
 „Lauf 8" ist von außen nicht prüfbar. Ist die Angabe mehrdeutig (derselbe Commit mit
 mehreren Läufen), alle Treffer mit ihrem `run_at` auflisten und nachfragen.
 
@@ -22,7 +22,7 @@ Aggregation mit dem Interpreter des Projekts, nicht im Kopf:
 uv run python -c "
 import json
 from collections import defaultdict
-runs=[json.loads(l) for l in open('data/eval_runs.jsonl',encoding='utf-8')]
+runs=[json.loads(l) for l in open('data/retrieval/eval_runs.jsonl',encoding='utf-8')]
 for r in runs:
     if r['commit'] not in ('<commit>',): continue
     agg=defaultdict(lambda:[0,0])

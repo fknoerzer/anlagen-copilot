@@ -32,7 +32,7 @@ Am stärksten profitieren Fragen, die zwei Handbücher brauchen:
 
 Beim Reranking holt die Vektorsuche zunächst 20 Kandidaten, ein Sprachmodell (Claude Haiku 4.5) wählt daraus die besten 5.
 
-Beide Spalten sind Spannen über wiederholte Läufe mit gleichen Parametern: die Vektorsuche über zwei Läufe (Commits `9db58dc` und `6e766d3` in `data/eval_runs.jsonl`), das Reranking über drei mit demselben Bewertungsformat (`aab6042`, `4d187b6`, `1f4d839`). Die Läufe liegen auf verschiedenen Commits, deren Änderungen Retrieval und Reranking nicht berührten. Die Streuung der Reranking-Spalte kommt von der Generierung des Rerankers, die nicht deterministisch ist; die 20 Kandidaten davor holt die Vektorsuche nach heutigem Plan der Datenbank ohne Index, also vollständig. Die Spalte „Nur Vektorsuche“ lief über den HNSW-Index von pgvector, der approximativ sucht und bei einzelnen Fragen weniger als fünf Seiten lieferte. Die Suche läuft inzwischen vollständig und ist damit reproduzierbar ([ADR 011](docs/adr/011-vollstaendige-suche-statt-hnsw.md)). Die Spannen je Kategorie stammen aus verschiedenen Läufen und summieren sich deshalb nicht direkt auf die Gesamtspanne.
+Beide Spalten sind Spannen über wiederholte Läufe mit gleichen Parametern: die Vektorsuche über zwei Läufe (Commits `9db58dc` und `6e766d3` in `data/retrieval/eval_runs.jsonl`), das Reranking über drei mit demselben Bewertungsformat (`aab6042`, `4d187b6`, `1f4d839`). Die Läufe liegen auf verschiedenen Commits, deren Änderungen Retrieval und Reranking nicht berührten. Die Streuung der Reranking-Spalte kommt von der Generierung des Rerankers, die nicht deterministisch ist; die 20 Kandidaten davor holt die Vektorsuche nach heutigem Plan der Datenbank ohne Index, also vollständig. Die Spalte „Nur Vektorsuche“ lief über den HNSW-Index von pgvector, der approximativ sucht und bei einzelnen Fragen weniger als fünf Seiten lieferte. Die Suche läuft inzwischen vollständig und ist damit reproduzierbar ([ADR 011](docs/adr/011-vollstaendige-suche-statt-hnsw.md)). Die Spannen je Kategorie stammen aus verschiedenen Läufen und summieren sich deshalb nicht direkt auf die Gesamtspanne.
 
 Bei Tabellen liegen beide Spannen gleich: dort ist **keine Verbesserung messbar**, der Unterschied bleibt innerhalb der Streuung der Vektorsuche.
 
@@ -200,7 +200,7 @@ uv run python -m anlagen_copilot.scripts.eval_retrieval --k 5
 uv run python -m anlagen_copilot.scripts.eval_retrieval --k 5 --candidates 20 --reranker claude-haiku-4-5
 ```
 
-Jeder Lauf hängt eine Zeile an `data/eval_runs.jsonl` an.
+Jeder Lauf hängt eine Zeile an `data/retrieval/eval_runs.jsonl` an.
 
 ## Entwicklungsbefehle
 

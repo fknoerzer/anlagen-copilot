@@ -42,8 +42,8 @@ die Datei nicht selbst an — sonst sicherte der Hook nichts, was nicht schon di
 ## Messaussagen
 
 Jede Zahl zur Retrieval-Qualität nennt ihren Lauf über den Commit-Hash aus
-`data/eval_runs.jsonl`, und wo mehrere Läufe derselben Konfiguration vorliegen, die
-Spanne statt eines Einzelwerts: Der Reranker ist nicht deterministisch
+`data/retrieval/eval_runs.jsonl`, und wo mehrere Läufe derselben Konfiguration
+vorliegen, die Spanne statt eines Einzelwerts: Der Reranker ist nicht deterministisch
 ([ADR 008](docs/adr/008-eval-laeufe-protokollieren.md)). Die Vektorsuche ist seit
 [ADR 011](docs/adr/011-vollstaendige-suche-statt-hnsw.md) vollständig und damit
 reproduzierbar; ältere Läufe mit `k=5` ohne Reranker liefen über den approximativen
