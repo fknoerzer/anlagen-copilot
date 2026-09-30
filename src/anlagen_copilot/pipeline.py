@@ -17,7 +17,7 @@ from anlagen_copilot.retrieval import Source, retrieve_global, retrieve_per_docu
 from anlagen_copilot.settings import Strategy
 
 
-class Retrieved(BaseModel):
+class PageSelection(BaseModel):
     """The pages one question produced, before and after reranking, and what that cost.
 
     Both lists are kept: the retrieval evaluation ranks the expected pages in
@@ -35,7 +35,7 @@ class Retrieved(BaseModel):
     rerank_output_tokens: int
 
 
-def retrieve_pages(
+def select_pages(
     openai_client: OpenAI,
     anthropic_client: Anthropic,
     question: str,
@@ -46,7 +46,7 @@ def retrieve_pages(
     per_document: int | None,
     candidates: int | None,
     reranker: str | None,
-) -> Retrieved:
+) -> PageSelection:
     """Search for the pages that answer `question` and, with a reranker, regrade them.
 
     Without a reranker the search fetches `k` pages and those are the result.
@@ -68,7 +68,7 @@ def retrieve_pages(
     retrieval_seconds = time.perf_counter() - retrieval_start
 
     if reranker is None:
-        return Retrieved(
+        return PageSelection(
             candidates=found,
             pages=found,
             retrieval_seconds=retrieval_seconds,
@@ -81,7 +81,7 @@ def retrieve_pages(
     reranked = rerank(anthropic_client, question, found, model=reranker, top_n=k)
     rerank_seconds = time.perf_counter() - rerank_start
 
-    return Retrieved(
+    return PageSelection(
         candidates=found,
         pages=[graded.source for graded in reranked.graded],
         retrieval_seconds=retrieval_seconds,

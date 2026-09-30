@@ -137,7 +137,7 @@ def _patch_run_retrieval(
 
     Both retrieval functions get the same mock, so a test picks the path through
     `per_document` and reads the calls off one object either way. They are
-    patched in `pipeline`, where `retrieve_pages()` looks them up.
+    patched in `pipeline`, where `select_pages()` looks them up.
 
     Settings stay real — `conftest` provides them, and `run_retrieval()` records
     them in the run, which a mock would only echo back.

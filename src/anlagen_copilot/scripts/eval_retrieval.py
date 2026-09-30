@@ -26,7 +26,7 @@ from anlagen_copilot.db import get_connection
 from anlagen_copilot.eval import load_eval
 from anlagen_copilot.logging_setup import setup_logging
 from anlagen_copilot.paths import DATA_DIR, PROJECT_ROOT
-from anlagen_copilot.pipeline import retrieve_pages
+from anlagen_copilot.pipeline import select_pages
 from anlagen_copilot.retrieval import Source
 from anlagen_copilot.settings import Strategy, get_settings
 
@@ -201,7 +201,7 @@ def run_retrieval(
 
     with get_connection() as conn:
         for question in eval_set.questions:
-            retrieved = retrieve_pages(
+            selection = select_pages(
                 openai_client,
                 anthropic_client,
                 question.question,
@@ -212,14 +212,14 @@ def run_retrieval(
                 candidates=candidates,
                 reranker=reranker,
             )
-            sources = retrieved.pages
-            rerank_input += retrieved.rerank_input_tokens
-            rerank_output += retrieved.rerank_output_tokens
+            sources = selection.pages
+            rerank_input += selection.rerank_input_tokens
+            rerank_output += selection.rerank_output_tokens
 
-            retrieval_positions = _positions(retrieved.candidates)
+            retrieval_positions = _positions(selection.candidates)
             # None without a reranker: `rerank_rank` must say "not reranked", not
             # repeat the search's rank.
-            rerank_positions = None if reranker is None else _positions(retrieved.pages)
+            rerank_positions = None if reranker is None else _positions(selection.pages)
 
             for rank, s in enumerate(sources, start=1):
                 logger.debug(
@@ -252,8 +252,8 @@ def run_retrieval(
                     expected=len(expected),
                     found=len(expected & found),
                     best_score=best,
-                    rerank_seconds=retrieved.rerank_seconds,
-                    retrieval_seconds=retrieved.retrieval_seconds,
+                    rerank_seconds=selection.rerank_seconds,
+                    retrieval_seconds=selection.retrieval_seconds,
                     source_ranks=source_ranks,
                 )
             )
