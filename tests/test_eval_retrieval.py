@@ -1,5 +1,4 @@
 import logging
-import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, Mock, call
@@ -15,55 +14,10 @@ from anlagen_copilot.scripts import eval_retrieval
 from anlagen_copilot.scripts.eval_retrieval import (
     RetrievalResult,
     RetrievalRun,
-    _append_run,
-    _current_commit,
     _log_summary,
     _recall,
     run_retrieval,
 )
-
-
-def _raise(exc: Exception) -> object:
-    """Builds a `subprocess.run` stand-in that fails with `exc`."""
-
-    def run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
-        raise exc
-
-    return run
-
-
-def _git(repo: Path, *args: str) -> str:
-    """Runs git in `repo` and returns its trimmed output."""
-    done = subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, check=True)
-    return done.stdout.strip()
-
-
-def _make_repo(tmp_path: Path) -> Path:
-    """Builds a repository with one commit over the paths `_current_commit()` tells apart.
-
-    `src/app.py` stands for code, `data/eval_runs.jsonl` for the record every run
-    appends to. Identity and signing are set per command, so the test does not
-    depend on how git is configured on the machine running it.
-    """
-    (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "app.py").write_text('print("code")\n', encoding="utf-8")
-    (tmp_path / "data").mkdir()
-    (tmp_path / "data" / "eval_runs.jsonl").write_text('{"run": 1}\n', encoding="utf-8")
-    _git(tmp_path, "init", "-q")
-    _git(tmp_path, "add", ".")
-    _git(
-        tmp_path,
-        "-c",
-        "user.name=test",
-        "-c",
-        "user.email=test@example.com",
-        "-c",
-        "commit.gpgsign=false",
-        "commit",
-        "-qm",
-        "init",
-    )
-    return tmp_path
 
 
 def _make_retrieval_result(**overrides: object) -> RetrievalResult:
@@ -153,39 +107,6 @@ def _patch_run_retrieval(
     return retrieve
 
 
-def test_current_commit_marks_uncommitted_code_dirty(tmp_path: Path) -> None:
-    """A run on code that is not committed must not pass for the commit below it."""
-    repo = _make_repo(tmp_path)
-    (repo / "src" / "app.py").write_text('print("changed")\n', encoding="utf-8")
-
-    assert _current_commit(repo) == _git(repo, "rev-parse", "--short", "HEAD") + "-dirty"
-
-
-def test_current_commit_ignores_an_appended_eval_run(tmp_path: Path) -> None:
-    """The record of one run does not mark the next run dirty.
-
-    Running k=5 and k=20 back to back is the usual case; flagging the second would
-    make the marker a false alarm exactly where it should be trusted.
-    """
-    repo = _make_repo(tmp_path)
-    with (repo / "data" / "eval_runs.jsonl").open("a", encoding="utf-8") as handle:
-        handle.write('{"run": 2}\n')
-
-    assert _current_commit(repo) == _git(repo, "rev-parse", "--short", "HEAD")
-
-
-def test_current_commit_is_none_outside_a_repository(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(subprocess, "run", _raise(subprocess.CalledProcessError(128, "git")))
-
-    assert _current_commit() is None
-
-
-def test_current_commit_is_none_when_git_is_not_installed(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(subprocess, "run", _raise(FileNotFoundError("git")))
-
-    assert _current_commit() is None
-
-
 def test_recall_is_one_when_every_source_is_found() -> None:
     results = [
         _make_retrieval_result(expected=1, found=1),
@@ -208,33 +129,6 @@ def test_recall_sums_sources_before_dividing() -> None:
     ]
 
     assert _recall(results) == 2 / 3
-
-
-def test_append_run_keeps_the_earlier_run(tmp_path: Path) -> None:
-    path = tmp_path / "eval_runs.jsonl"
-
-    first_run = _make_eval_run(commit="aaa1111")
-    second_run = _make_eval_run(commit="bbb2222")
-
-    _append_run(first_run, path)
-    _append_run(second_run, path)
-
-    lines = path.read_text(encoding="utf-8").splitlines()
-
-    assert len(lines) == 2
-    assert [RetrievalRun.model_validate_json(line) for line in lines] == [first_run, second_run]
-
-
-def test_append_run_round_trips_non_ascii(tmp_path: Path) -> None:
-    path = tmp_path / "eval_runs.jsonl"
-
-    run = _make_eval_run(embedding_model="mödél")
-
-    _append_run(run, path)
-
-    lines = path.read_text(encoding="utf-8").splitlines()
-
-    assert [RetrievalRun.model_validate_json(line) for line in lines] == [run]
 
 
 def test_run_retrieval_scores_each_question_against_its_expected_sources(

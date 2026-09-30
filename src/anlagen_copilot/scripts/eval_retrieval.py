@@ -13,8 +13,6 @@ placed without knowing `k`, the strategy and the embedding model.
 import argparse
 import collections
 import logging
-import statistics
-import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -25,19 +23,15 @@ from anlagen_copilot.clients import get_anthropic_client, get_openai_client
 from anlagen_copilot.db import get_connection
 from anlagen_copilot.eval import load_eval
 from anlagen_copilot.logging_setup import setup_logging
-from anlagen_copilot.paths import DATA_DIR, PROJECT_ROOT
+from anlagen_copilot.paths import DATA_DIR
 from anlagen_copilot.pipeline import select_pages
 from anlagen_copilot.retrieval import Source
+from anlagen_copilot.runlog import append_run, current_commit, median_seconds
 from anlagen_copilot.settings import Strategy, get_settings
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_EVAL_RUNS_PATH = DATA_DIR / "eval_runs.jsonl"
-
-# What a run's numbers depend on. `data/eval_runs.jsonl` stays out on purpose:
-# every run appends to it, so the second of two back-to-back runs would be marked
-# dirty although only the record of the first had changed.
-_CODE_PATHS = ("src", "pyproject.toml", "uv.lock")
 
 
 class SourceRank(BaseModel):
@@ -91,40 +85,6 @@ class RetrievalRun(BaseModel):
     results: list[RetrievalResult]
 
 
-def _current_commit(repo: Path = PROJECT_ROOT) -> str | None:
-    """Return the short commit hash, marked `-dirty` over uncommitted code.
-
-    A hash alone would claim a run for a commit that did not contain the code it
-    ran. Only `_CODE_PATHS` count, and `status` rather than `diff`, so that a new
-    module not yet added counts as well.
-
-    `repo` rather than the working directory, because the paths are relative to
-    it. None outside a repository: a missing hash makes a run harder to place
-    later; failing the run over it would be worse.
-    """
-    try:
-        head = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=repo,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        status = subprocess.run(
-            ["git", "status", "--porcelain", "--", *_CODE_PATHS],
-            cwd=repo,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-    except (subprocess.CalledProcessError, OSError):
-        return None
-    commit = head.stdout.strip()
-    if not commit:
-        return None
-    return f"{commit}-dirty" if status.stdout.strip() else commit
-
-
 def _positions(sources: list[Source]) -> dict[tuple[str, int], int]:
     """Map each page to its place from 1, so an expected page can be looked up by key."""
     return {(s.document_id, s.page): place for place, s in enumerate(sources, start=1)}
@@ -140,18 +100,6 @@ def _recall(results: list[RetrievalResult]) -> float:
     if not expected_total:
         return 0.0
     return sum(r.found for r in results) / expected_total
-
-
-def _append_run(run: RetrievalRun, path: Path) -> None:
-    """Append one run as a single JSON line.
-
-    One record per line is the whole point of the format, so the JSON stays
-    unindented: a pretty-printed record would break every reader that goes line
-    by line, and it would break silently.
-    """
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(run.model_dump_json() + "\n")
-    logger.info("Run appended to %s", path)
 
 
 def run_retrieval(
@@ -290,7 +238,7 @@ def run_retrieval(
 
     run = RetrievalRun(
         run_at=datetime.now(UTC),
-        commit=_current_commit(),
+        commit=current_commit(),
         eval_set_version=eval_set.version,
         strategy=strategy,
         k=k,
@@ -304,17 +252,8 @@ def run_retrieval(
         recall=_recall(results),
         results=results,
     )
-    _append_run(run, runs_path)
+    append_run(run, runs_path)
     return run
-
-
-def _median_seconds(values: list[float]) -> str:
-    """Format the median of the timings, or a dash when nothing was timed.
-
-    The dash is needed because `statistics.median([])` raises instead of
-    returning a value, and a run without reranking has no rerank timings.
-    """
-    return f"{statistics.median(values):.2f}s" if values else "—"
 
 
 def _log_summary(
@@ -390,9 +329,9 @@ def _log_summary(
     logger.info(
         "%-13s median per question: retrieval %s, rerank %s, total %s",
         "latency",
-        _median_seconds(retrieval),
-        _median_seconds(reranking),
-        _median_seconds(per_question),
+        median_seconds(retrieval),
+        median_seconds(reranking),
+        median_seconds(per_question),
     )
 
     # The unanswerable questions are the only ones that say where an `answered`
