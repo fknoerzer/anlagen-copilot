@@ -17,3 +17,4 @@ Alternativen und Konsequenzen.
 | [010](010-kein-rag-framework.md) | Kein RAG-Framework |
 | [011](011-vollstaendige-suche-statt-hnsw.md) | Vollständige Suche statt HNSW-Index |
 | [012](012-strukturierte-ausgabe.md) | Strukturierte Ausgabe statt erzwungenem Tool-Call |
+| [013](013-antworten-als-aussagen.md) | Antworten als Aussagen mit Seiten-IDs |
