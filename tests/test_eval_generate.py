@@ -109,6 +109,7 @@ def _result(question: EvalQuestion, answered: bool, score: Score) -> GenerationR
         statements=_answer(answered, ("Aussage", ids)).statements,
         category=question.category,
         id=question.id,
+        answered_by="answering-model",
         input_tokens=100,
         output_tokens=20,
         generation_seconds=1.0,
@@ -197,7 +198,7 @@ def _selection(pages: list[Source], *, reranked: bool) -> PageSelection:
 
 
 def _generated(answer: GeneratedAnswer) -> Generated:
-    return Generated(answer=answer, input_tokens=6000, output_tokens=200)
+    return Generated(answer=answer, model="answering-model", input_tokens=6000, output_tokens=200)
 
 
 def test_run_generation_records_the_answer_its_pages_and_its_score(

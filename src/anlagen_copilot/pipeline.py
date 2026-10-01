@@ -31,6 +31,7 @@ class PageSelection(BaseModel):
     pages: list[Source]
     retrieval_seconds: float
     rerank_seconds: float | None
+    reranked_by: str | None = None
     rerank_input_tokens: int
     rerank_output_tokens: int
 
@@ -86,6 +87,7 @@ def select_pages(
         pages=[graded.source for graded in reranked.graded],
         retrieval_seconds=retrieval_seconds,
         rerank_seconds=rerank_seconds,
+        reranked_by=reranked.model,
         rerank_input_tokens=reranked.input_tokens,
         rerank_output_tokens=reranked.output_tokens,
     )

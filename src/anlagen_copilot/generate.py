@@ -107,6 +107,7 @@ class Generated(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     answer: GeneratedAnswer
+    model: str
     input_tokens: int
     output_tokens: int
 
@@ -189,6 +190,7 @@ def generate(client: Anthropic, question: str, sources: list[Source], *, model: 
 
     return Generated(
         answer=answer,
+        model=message.model,
         input_tokens=message.usage.input_tokens,
         output_tokens=message.usage.output_tokens,
     )

@@ -107,6 +107,15 @@ def test_generate_returns_the_answer_and_its_tokens() -> None:
     assert (result.input_tokens, result.output_tokens) == (100, 20)
 
 
+def test_generate_records_the_model_that_answered_not_the_one_requested() -> None:
+    """An alias like claude-sonnet-5 may point to a newer snapshot; the run must name it."""
+    client = FakeAnthropic(make_message(_answer_json(True, ("Wert A", [1]))))
+
+    result = generate(cast(Anthropic, client), "Frage?", _sources(), model="requested-model")
+
+    assert result.model == "claude-test"
+
+
 def test_generate_sends_the_schema_and_pages_numbered_from_one() -> None:
     client = FakeAnthropic(make_message(_answer_json(True, ("Wert A", [1]))))
 

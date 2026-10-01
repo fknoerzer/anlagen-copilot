@@ -62,6 +62,7 @@ class RetrievalResult(BaseModel):
     best_score: float
     retrieval_seconds: float | None = None
     rerank_seconds: float | None = None
+    reranked_by: str | None = None
     source_ranks: list[SourceRank] | None = None
 
 
@@ -200,6 +201,7 @@ def run_retrieval(
                     expected=len(expected),
                     found=len(expected & found),
                     best_score=best,
+                    reranked_by=selection.reranked_by,
                     rerank_seconds=selection.rerank_seconds,
                     retrieval_seconds=selection.retrieval_seconds,
                     source_ranks=source_ranks,

@@ -86,6 +86,9 @@ class Reranked(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     graded: list[GradedSource]
+    # The model that answered, from the response: an alias may point to a newer
+    # snapshot. None when no call was made.
+    model: str | None = None
     input_tokens: int
     output_tokens: int
 
@@ -172,6 +175,7 @@ def rerank(
     grades = _Grades.model_validate_json(block.text).grades
     return Reranked(
         graded=_order(candidates, grades, top_n=top_n),
+        model=message.model,
         input_tokens=message.usage.input_tokens,
         output_tokens=message.usage.output_tokens,
     )

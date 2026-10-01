@@ -104,6 +104,7 @@ class GenerationResult(BaseModel):
     statements: list[Statement]
     category: Literal["lookup", "table", "diagram", "multi-hop", "unanswerable"]
     id: str
+    answered_by: str
     input_tokens: int
     output_tokens: int
     generation_seconds: float
@@ -240,6 +241,7 @@ def run_generation(
                 statements=generated.answer.statements,
                 category=eval_question.category,
                 id=eval_question.id,
+                answered_by=generated.model,
                 input_tokens=generated.input_tokens,
                 output_tokens=generated.output_tokens,
                 generation_seconds=generation_seconds,

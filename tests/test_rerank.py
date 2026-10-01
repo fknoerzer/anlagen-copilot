@@ -41,6 +41,16 @@ def test_rerank_without_candidates_makes_no_call() -> None:
 
     assert result.graded == []
     assert (result.input_tokens, result.output_tokens) == (0, 0)
+    assert result.model is None
+
+
+def test_rerank_records_the_model_that_answered_not_the_one_requested() -> None:
+    """An alias may point to a newer snapshot; the run must name the one that graded."""
+    client = FakeAnthropic(_message([{"id": 1, "grade": 3}]))
+
+    result = rerank(cast(Anthropic, client), "Frage?", _candidates(), model="requested", top_n=1)
+
+    assert result.model == "claude-test"
 
 
 def test_rerank_orders_by_grade_then_by_vector_score() -> None:

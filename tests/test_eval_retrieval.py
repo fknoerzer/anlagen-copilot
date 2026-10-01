@@ -229,7 +229,10 @@ def test_run_retrieval_regrades_the_candidates_and_keeps_k(
     hit = _make_source(page=1, score=0.5)
     retrieve = _patch_run_retrieval(monkeypatch, [make_eval_question()], [[miss, hit]])
     reranked = Reranked(
-        graded=[GradedSource(source=hit, grade=3)], input_tokens=1200, output_tokens=80
+        graded=[GradedSource(source=hit, grade=3)],
+        model="grading-model",
+        input_tokens=1200,
+        output_tokens=80,
     )
     rerank = Mock(return_value=reranked)
     monkeypatch.setattr(pipeline, "rerank", rerank)
@@ -242,6 +245,8 @@ def test_run_retrieval_regrades_the_candidates_and_keeps_k(
     assert rerank.call_args.kwargs == {"model": "test-model", "top_n": 1}
     assert run.results[0].found == 1
     assert (run.candidates, run.reranker) == (2, "test-model")
+    # The model that graded, not the one requested: an alias may resolve to a newer one.
+    assert run.results[0].reranked_by == "grading-model"
     # One question, so the totals are that question's — what this pins is that they
     # reach the record at all, which is the whole point of counting them.
     assert (run.rerank_input_tokens, run.rerank_output_tokens) == (1200, 80)
