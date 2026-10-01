@@ -58,11 +58,12 @@ ADR 004 bleibt unverändert. Die Klammer-Reparatur entfällt.
 
   | | Tool-Call (`fc391fd`) | Strukturierte Ausgabe (`5c36cdb`) |
   |---|---:|---:|
-  | Belegseiten in den Top 5 | 23–23 / 36 | 23–23 / 36 |
+  | Belegseiten in den Top 5 | 23 / 36 | 23 / 36 |
   | Output-Tokens je Lauf | 11.340–11.480 | 8.928 |
   | Input-Tokens je Lauf | 562.992 | 550.392 |
 
-  Keine Frage ist gekippt, in allen sechs Läufen werden dieselben Belegseiten
+  Die Belegseiten sind in jedem der sechs Läufe 23 / 36, ohne Streuung. Keine
+  Frage ist gekippt, in allen sechs Läufen werden dieselben Belegseiten
   gefunden und verfehlt. Die vorher festgehaltene Erwartung (23 ± 1
   Belegseiten, Output um 11.400) trifft für die Belegseiten zu. Die
   Output-Tokens liegen 22 % darunter.
