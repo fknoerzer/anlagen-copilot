@@ -39,6 +39,17 @@ IDE-Erweiterung stellt dem Prompt Kontext voran), legt ein UserPromptSubmit-Hook
 `.claude/delegate` an, ein Stop-Hook löscht die Datei am Ende der Antwort. Claude legt
 die Datei nicht selbst an — sonst sicherte der Hook nichts, was nicht schon die Regel sagt.
 
+Nach jedem Auftrag, bei dem Claude Dateien ändert, ob über `delegiere:` in `src/` oder
+in den delegierbaren Bereichen, zeigt die Antwort genau, was geändert wurde und warum,
+damit der Autor den Code versteht, den er nicht selbst geschrieben hat:
+
+- Je geänderter Datei die Änderung selbst: bei Code in `src/` der neue oder geänderte
+  Abschnitt als Codeblock, bei kleinen Änderungen vorher und nachher.
+- Zu jeder Änderung der Grund in ein, zwei Sätzen: welches Problem sie löst oder
+  welche Entscheidung sie umsetzt.
+- Was über den Auftrag hinaus angefasst wurde, ausdrücklich als solches benannt.
+- Wie geprüft wurde (Tests, mypy, Ruff, ein Probeaufruf) und was offen bleibt.
+
 ## Messaussagen
 
 Jede Zahl zur Retrieval-Qualität nennt ihren Lauf über den Commit-Hash aus
