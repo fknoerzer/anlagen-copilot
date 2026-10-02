@@ -285,3 +285,40 @@ def test_run_generation_appends_the_run_to_its_file(
 def test_run_generation_rejects_candidates_without_a_reranker(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="candidates and reranker go together"):
         run_generation(candidates=20, generator="test-generator", runs_path=tmp_path / "r.jsonl")
+
+
+def test_run_generation_names_the_question_when_an_answer_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The run still ends on the error (ADR 005), but the error says which question it hit."""
+    _, generate = _patch_run_generation(
+        monkeypatch,
+        [_question(id="q-023", category="table")],
+        _selection([_source(1)], reranked=False),
+        _generated(_answer(True, ("Wert A", [1]))),
+    )
+    generate.side_effect = ValueError("The answer cites source 6")
+    runs_path = tmp_path / "runs.jsonl"
+
+    with pytest.raises(ValueError, match="cites source 6") as raised:
+        run_generation(generator="test-generator", runs_path=runs_path)
+
+    assert any("q-023 (table)" in note for note in raised.value.__notes__)
+    assert not runs_path.exists()
+
+
+def test_run_generation_names_the_question_when_page_selection_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    select, _ = _patch_run_generation(
+        monkeypatch,
+        [_question(id="q-023", category="table")],
+        _selection([_source(1)], reranked=False),
+        _generated(_answer(True, ("Wert A", [1]))),
+    )
+    select.side_effect = ValueError("did not finish its grades")
+
+    with pytest.raises(ValueError, match="did not finish its grades") as raised:
+        run_generation(generator="test-generator", runs_path=tmp_path / "runs.jsonl")
+
+    assert any("q-023 (table)" in note for note in raised.value.__notes__)

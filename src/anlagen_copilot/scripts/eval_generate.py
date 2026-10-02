@@ -210,30 +210,48 @@ def run_generation(
 
     with get_connection() as conn:
         for eval_question in eval_set.questions:
-            selection = select_pages(
-                openai_client,
-                anthropic_client,
-                eval_question.question,
-                conn,
-                strategy,
-                k=k,
-                per_document=per_document,
-                candidates=candidates,
-                reranker=reranker,
-            )
-            sources = selection.pages
-            rerank_input += selection.rerank_input_tokens
-            rerank_output += selection.rerank_output_tokens
-            generation_start = time.perf_counter()
-            generated = generate(
-                client=anthropic_client,
-                question=eval_question.question,
-                sources=sources,
-                model=generator,
-            )
+            try:
+                selection = select_pages(
+                    openai_client,
+                    anthropic_client,
+                    eval_question.question,
+                    conn,
+                    strategy,
+                    k=k,
+                    per_document=per_document,
+                    candidates=candidates,
+                    reranker=reranker,
+                )
+                sources = selection.pages
+                rerank_input += selection.rerank_input_tokens
+                rerank_output += selection.rerank_output_tokens
+                generation_start = time.perf_counter()
+
+                generated = generate(
+                    client=anthropic_client,
+                    question=eval_question.question,
+                    sources=sources,
+                    model=generator,
+                )
+            except Exception as e:
+                e.add_note(f"while running {eval_question.id} ({eval_question.category})")
+                raise
             generation_seconds = time.perf_counter() - generation_start
 
             score = _score_answer(eval_question, generated.answer, sources)
+
+            logger.info(
+                "%s (%s): %s, used %d of %d retrieved, %d pages cited, %d/%d tokens, %.1fs",
+                eval_question.id,
+                eval_question.category,
+                "answered" if generated.answer.answered else "refused",
+                score.used,
+                score.retrieved,
+                score.cited_total,
+                generated.input_tokens,
+                generated.output_tokens,
+                generation_seconds,
+            )
             ref_pages = [_page(source) for source in sources]
 
             result = GenerationResult(
