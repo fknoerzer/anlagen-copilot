@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock
 
 import pytest
-from helpers import make_eval_question, was_logged
+from helpers import make_eval_question, make_expected_source, was_logged
 from pydantic import ValidationError
 
 from anlagen_copilot.eval import EvalQuestion, EvalSet
@@ -63,8 +63,8 @@ def test_score_answer_follows_the_required_pages_to_the_answer() -> None:
     """Like q-007: one of two required pages retrieved and used, plus two pages not required."""
     question = _question(
         expected_sources=[
-            {"document_id": "sew-getriebe-ba", "page": 70},
-            {"document_id": "sew-schmierstoffe", "page": 7},
+            make_expected_source(("sew-getriebe-ba", 70)),
+            make_expected_source(("sew-schmierstoffe", 7)),
         ]
     )
     sources = [_source(212), _source(7, "sew-schmierstoffe"), _source(209)]
@@ -81,6 +81,34 @@ def test_score_answer_counts_a_page_cited_twice_once() -> None:
     score = _score_answer(_question(), answer, [_source(1)])
 
     assert (score.used, score.cited_total) == (1, 1)
+
+
+def test_score_answer_counts_a_source_once_when_both_its_pages_are_cited() -> None:
+    """Two equal pages of one source in the prompt and both cited: one source, two pages."""
+    question = _question(
+        expected_sources=[
+            make_expected_source(("sew-schmierstoffe", 7), ("sew-getriebe-ba", 212)),
+        ]
+    )
+    sources = [_source(7, "sew-schmierstoffe"), _source(212)]
+    answer = _answer(True, ("Wert A", [1]), ("Wert B", [2]))
+
+    score = _score_answer(question, answer, sources)
+
+    assert score == Score(required=1, retrieved=1, used=1, cited_total=2)
+
+
+def test_score_answer_counts_a_source_through_its_second_page() -> None:
+    """Only the second of two equal pages reached the prompt and was cited: still found."""
+    question = _question(
+        expected_sources=[
+            make_expected_source(("sew-schmierstoffe", 7), ("sew-getriebe-ba", 212)),
+        ]
+    )
+
+    score = _score_answer(question, _answer(True, ("Wert A", [1])), [_source(212)])
+
+    assert score == Score(required=1, retrieved=1, used=1, cited_total=1)
 
 
 def test_score_answer_tells_a_retrieved_page_from_a_used_one() -> None:
@@ -158,7 +186,7 @@ def test_log_summary_sets_used_pages_against_retrieved_ones(
     with caplog.at_level(logging.INFO):
         _log_summary(_run([result]))
 
-    assert was_logged(caplog, logging.INFO, "used 100.0% (1/1) of retrieved pages"), caplog.text
+    assert was_logged(caplog, logging.INFO, "used 100.0% (1/1) of retrieved sources"), caplog.text
     assert was_logged(caplog, logging.INFO, "retrieved  50.0% (1/2) of required"), caplog.text
 
 

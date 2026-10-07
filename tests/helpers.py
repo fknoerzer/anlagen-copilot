@@ -20,7 +20,7 @@ from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from anlagen_copilot.corpus import Corpus, CorpusDocument
-from anlagen_copilot.eval import EvalQuestion
+from anlagen_copilot.eval import EvalQuestion, ExpectedPage, ExpectedSource
 
 # For calls that never reach the client: `embed()` patched out, or an argument
 # rejected before it. None rather than a mock, which would absorb an unexpected
@@ -174,11 +174,20 @@ def make_eval_question(**overrides: object) -> EvalQuestion:
         "id": "q-test",
         "category": "lookup",
         "question": "Testfrage?",
-        "expected_sources": [{"document_id": "sew-getriebe-ba", "page": 1}],
+        "expected_sources": [make_expected_source(("sew-getriebe-ba", 1))],
         "expected_facts": ["Testfakt."],
     }
     defaults.update(overrides)
     return EvalQuestion.model_validate(defaults)
+
+
+def make_expected_source(*pages: tuple[str, int]) -> ExpectedSource:
+    """Builds one expected source; several pages mean any one of them is enough."""
+    return ExpectedSource(
+        any_of_pages=[
+            ExpectedPage(document_id=document_id, page=page) for document_id, page in pages
+        ]
+    )
 
 
 def was_logged(caplog: pytest.LogCaptureFixture, level: int, text: str) -> bool:

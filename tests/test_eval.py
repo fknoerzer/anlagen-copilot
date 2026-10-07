@@ -16,8 +16,9 @@ questions:
     category: lookup
     question: Testfrage?
     expected_sources:
-      - document_id: sew-getriebe-ba
-        page: 1
+      - any_of_pages:
+          - document_id: sew-getriebe-ba
+            page: 1
     expected_facts:
       - Testfakt.
     notes: Test-Notiz.
@@ -112,7 +113,8 @@ questions:
   - id: q-test
     category: unanswerable
     question: Testfrage?
-    expected_sources: 
+    expected_sources:
+      - any_of_pages:
           - document_id: sew-getriebe-ba
             page: 1
     expected_facts: []
@@ -140,8 +142,9 @@ questions:
     category: lookup
     question: Testfrage?
     expected_sources:
-      - document_id: falsche-id
-        page: 1
+      - any_of_pages:
+          - document_id: falsche-id
+            page: 1
     expected_facts:
       - x
     notes: Test-Notiz.
@@ -188,4 +191,55 @@ questions:
     )
 
     with pytest.raises(ValueError, match="version"):
+        load_eval(f)
+
+
+def test_load_eval_rejects_a_source_without_pages(tmp_path: Path) -> None:
+    """An empty source could never be found and would count as a miss in every run."""
+    f = tmp_path / "eval_set.yaml"
+    f.write_text(
+        """
+version: v-test
+questions:
+  - id: q-test
+    category: lookup
+    question: Testfrage?
+    expected_sources:
+      - any_of_pages: []
+    expected_facts:
+      - Testfakt.
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="any_of_pages"):
+        load_eval(f)
+
+
+def test_load_eval_rejects_a_page_in_two_sources(tmp_path: Path) -> None:
+    """One hit on a shared page would count both sources as found."""
+    f = tmp_path / "eval_set.yaml"
+    f.write_text(
+        """
+version: v-test
+questions:
+  - id: q-test
+    category: multi-hop
+    question: Testfrage?
+    expected_sources:
+      - any_of_pages:
+          - document_id: sew-getriebe-ba
+            page: 1
+      - any_of_pages:
+          - document_id: sew-getriebe-ba
+            page: 2
+          - document_id: sew-getriebe-ba
+            page: 1
+    expected_facts:
+      - Testfakt.
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="q-test: sew-getriebe-ba p. 1 is listed twice"):
         load_eval(f)

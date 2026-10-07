@@ -175,21 +175,28 @@ def run_retrieval(
                     "%s: #%d %.4f %s p.%d", question.id, rank, s.score, s.document_id, s.page
                 )
 
-            expected = {(e.document_id, e.page) for e in question.expected_sources}
-            source_ranks = [
-                SourceRank(
-                    document_id=e.document_id,
-                    page=e.page,
-                    retrieval_rank=retrieval_positions.get((e.document_id, e.page)),
-                    rerank_rank=(
-                        None
-                        if rerank_positions is None
-                        else rerank_positions.get((e.document_id, e.page))
-                    ),
+            expected: list[set[tuple[str, int]]] = []
+            source_ranks: list[SourceRank] = []
+
+            for source in question.expected_sources:
+                expected.append({(e.document_id, e.page) for e in source.any_of_pages})
+                source_ranks.extend(
+                    SourceRank(
+                        document_id=e.document_id,
+                        page=e.page,
+                        retrieval_rank=retrieval_positions.get((e.document_id, e.page)),
+                        rerank_rank=(
+                            None
+                            if rerank_positions is None
+                            else rerank_positions.get((e.document_id, e.page))
+                        ),
+                    )
+                    for e in source.any_of_pages
                 )
-                for e in question.expected_sources
-            ]
             found = {(s.document_id, s.page) for s in sources}
+            # A source counts as found when any one of its pages is, and once even
+            # when several are: its pages are equivalent, not separate evidence.
+            found_sources = sum(1 for pages in expected if pages & found)
             # The highest vector score, not the first page's: after reranking the
             # first page is the best graded one, and `best_score` would quietly
             # change its meaning between runs.
@@ -199,7 +206,7 @@ def run_retrieval(
                     id=question.id,
                     category=question.category,
                     expected=len(expected),
-                    found=len(expected & found),
+                    found=found_sources,
                     best_score=best,
                     reranked_by=selection.reranked_by,
                     rerank_seconds=selection.rerank_seconds,
@@ -223,7 +230,7 @@ def run_retrieval(
                     "%s (%s): %d of %d expected sources in top %d, best score %.4f",
                     question.id,
                     question.category,
-                    len(expected & found),
+                    found_sources,
                     len(expected),
                     len(sources),
                     best,

@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import ANY, MagicMock, Mock, call
 
 import pytest
-from helpers import make_eval_question
+from helpers import make_eval_question, make_expected_source
 
 from anlagen_copilot import pipeline
 from anlagen_copilot.eval import EvalQuestion, EvalSet
@@ -322,8 +322,8 @@ def test_run_retrieval_ranks_every_expected_page_including_a_missing_one(
     """One entry per expected page, not per returned one; a page not returned ranks None."""
     question = make_eval_question(
         expected_sources=[
-            {"document_id": "sew-getriebe-ba", "page": 1},
-            {"document_id": "sew-getriebe-ba", "page": 2},
+            make_expected_source(("sew-getriebe-ba", 1)),
+            make_expected_source(("sew-getriebe-ba", 2)),
         ]
     )
     returned = [_make_source(page=99), _make_source(page=98), _make_source(page=1)]
@@ -337,6 +337,39 @@ def test_run_retrieval_ranks_every_expected_page_including_a_missing_one(
         (1, 3, None),
         (2, None, None),
     ]
+
+
+def test_run_retrieval_counts_a_source_once_and_keeps_every_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Both pages of the first source are found, the second source is missed: 1 of 2.
+
+    The unanswerable question after it must start from nothing, not from the
+    sources of the question before.
+    """
+    question = make_eval_question(
+        id="q-two-sources",
+        category="multi-hop",
+        expected_sources=[
+            make_expected_source(("sew-schmierstoffe", 7), ("sew-getriebe-ba", 212)),
+            make_expected_source(("sew-getriebe-ba", 209)),
+        ],
+    )
+    unanswerable = make_eval_question(
+        id="q-none", category="unanswerable", expected_sources=[], expected_facts=[]
+    )
+    returned = [
+        _make_source(document_id="sew-schmierstoffe", page=7),
+        _make_source(document_id="sew-getriebe-ba", page=212),
+    ]
+    _patch_run_retrieval(monkeypatch, [question, unanswerable], [returned, returned])
+
+    run = run_retrieval(k=2, runs_path=tmp_path / "eval_runs.jsonl")
+
+    two_sources, none = run.results
+    assert (two_sources.expected, two_sources.found) == (2, 1)
+    assert (none.expected, none.found, none.source_ranks) == (0, 0, [])
+    assert run.recall == 0.5
 
 
 def test_run_retrieval_keeps_the_search_rank_that_reranking_overwrites(

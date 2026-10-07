@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Literal, Self
 
 import yaml
-from pydantic import BaseModel, ConfigDict, PositiveInt, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
 
 from anlagen_copilot.corpus import load_corpus
 from anlagen_copilot.paths import DATA_DIR
@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_EVALSET_PATH = DATA_DIR / "eval_set.yaml"
 
 
-class ExpectedSource(BaseModel):
-    """One page a question must be answerable from — the retrieval ground truth.
+class ExpectedPage(BaseModel):
+    """One PDF page an answer is expected on.
 
     `page` is a page number of the original PDF and therefore comparable to
     `chunks.page` directly. That holds for excerpted documents too: ingestion
@@ -39,6 +39,21 @@ class ExpectedSource(BaseModel):
     page: PositiveInt
 
 
+class ExpectedSource(BaseModel):
+    """One piece of information a question needs; any one of its pages is enough.
+
+    The same table can stand in two manuals: for q-007 in sew-schmierstoffe
+    p. 7 and in sew-getriebe-ba p. 212. As two sources, both would be
+    required, and an answer from either page would count as half found. As
+    one source with both pages in `any_of_pages`, either page counts, and
+    finding both still counts once.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    any_of_pages: list[ExpectedPage] = Field(min_length=1)
+
+
 class EvalQuestion(BaseModel):
     """One eval question from data/eval_set.yaml with its expected sources and facts.
 
@@ -54,6 +69,28 @@ class EvalQuestion(BaseModel):
     expected_sources: list[ExpectedSource]
     expected_facts: list[str]
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def check_no_page_twice(self) -> Self:
+        """Reject a page that is listed twice among the expected sources.
+
+        In two sources, one hit on that page would count both as found, and the
+        answer score would fail its own check mid-run, after the API calls were
+        paid. Twice in one source it is a harmless typo, but still a typo.
+
+        Raises:
+            ValueError: When the same page occurs twice in this question.
+        """
+        seen: set[ExpectedPage] = set()
+        for source in self.expected_sources:
+            for page in source.any_of_pages:
+                if page in seen:
+                    raise ValueError(
+                        f"{self.id}: {page.document_id} p. {page.page} is listed twice "
+                        "in expected_sources"
+                    )
+                seen.add(page)
+        return self
 
     @model_validator(mode="after")
     def check_unanswerable_consistency(self) -> Self:
@@ -101,11 +138,12 @@ class EvalSet(BaseModel):
 
         for question in self.questions:
             for source in question.expected_sources:
-                if source.document_id not in corpus_doc_ids:
-                    raise ValueError(
-                        f"{question.id}: document_id '{source.document_id}' "
-                        "not found in corpus.yaml"
-                    )
+                for page in source.any_of_pages:
+                    if page.document_id not in corpus_doc_ids:
+                        raise ValueError(
+                            f"{question.id}: document_id '{page.document_id}' "
+                            "not found in corpus.yaml"
+                        )
 
         return self
 

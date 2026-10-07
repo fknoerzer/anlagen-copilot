@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, NonNegativeInt, PositiveInt, model_v
 
 from anlagen_copilot.clients import get_anthropic_client, get_openai_client
 from anlagen_copilot.db import get_connection
-from anlagen_copilot.eval import EvalQuestion, ExpectedSource, load_eval
+from anlagen_copilot.eval import EvalQuestion, ExpectedPage, load_eval
 from anlagen_copilot.generate import GeneratedAnswer, Statement, generate
 from anlagen_copilot.logging_setup import setup_logging
 from anlagen_copilot.paths import DATA_DIR
@@ -46,11 +46,13 @@ class PageRef(BaseModel):
 
 
 class Score(BaseModel):
-    """How the required pages of one question fared, from the eval set to the answer.
+    """How the required sources of one question fared, from the eval set to the answer.
 
-    `required` pages come from the eval set, `retrieved` of them reached the
-    prompt, and `used` of those were cited. `cited_total` counts every cited
-    page, expected or not. All four count pages, not citations.
+    `required` sources come from the eval set, `retrieved` of them reached the
+    prompt with at least one of their pages, and `used` of those were cited.
+    `cited_total` counts every cited page, expected or not. None of the four
+    counts citations: a page cited twice, or two cited pages of one source,
+    count once.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -64,8 +66,8 @@ class Score(BaseModel):
     def check_counts_are_consistent(self) -> Self:
         """Check that each count lies within the one it is taken from.
 
-        The counts are sizes of nested page sets, so a larger inner count means
-        `_score_answer()` counted wrong. Failing here stops a wrong score before
+        Each count picks from the one it is checked against, so a larger one
+        means `_score_answer()` counted wrong. Failing here stops a wrong score before
         it reaches the run.
 
         Raises:
@@ -75,17 +77,17 @@ class Score(BaseModel):
         if self.required < self.retrieved:
             raise ValueError(
                 f"retrieved {self.retrieved} exceeds required {self.required}: "
-                "a prompt page was counted that the eval set does not expect"
+                "a source was counted that the eval set does not expect"
             )
         if self.retrieved < self.used:
             raise ValueError(
                 f"used {self.used} exceeds retrieved {self.retrieved}: "
-                "a cited page was counted as required though it was not in the prompt"
+                "a source was counted as cited though none of its pages was in the prompt"
             )
         if self.cited_total < self.used:
             raise ValueError(
                 f"used {self.used} exceeds cited_total {self.cited_total}: "
-                "a page was counted as used without appearing in any statement"
+                "a source was counted as used without a page of it in any statement"
             )
         return self
 
@@ -133,22 +135,25 @@ class GenerationRun(BaseModel):
     results: list[GenerationResult]
 
 
-def _page(source: Source | ExpectedSource) -> PageRef:
+def _page(source: Source | ExpectedPage) -> PageRef:
     """Reduce a page to what identifies it, so pages from both sides compare equal."""
     return PageRef(document_id=source.document_id, page=source.page)
 
 
 def _score_answer(question: EvalQuestion, answer: GeneratedAnswer, sources: list[Source]) -> Score:
-    """Count how the required pages fared: whether they were retrieved and used.
+    """Count how the required sources fared: whether they were retrieved and used.
 
-    The counts are sizes of page sets, so a page cited by three statements
-    counts once: they compare pages, not citations.
+    A source counts as retrieved or used when any one of its pages is, and once
+    even when several are: its pages are equivalent, not separate evidence. For
+    the same reason a page cited by three statements counts once.
 
     The ids in the answer are taken as checked. `generate()` rejects any id
     outside `sources` before an answer gets here; unchecked, an id of 0 would
     quietly count the last page through `sources[0 - 1]`.
     """
-    required = {_page(source) for source in question.expected_sources}
+    required = [
+        {_page(page) for page in source.any_of_pages} for source in question.expected_sources
+    ]
     in_prompt = {_page(source) for source in sources}
     cited = {
         _page(sources[source_id - 1])
@@ -158,8 +163,8 @@ def _score_answer(question: EvalQuestion, answer: GeneratedAnswer, sources: list
 
     return Score(
         required=len(required),
-        retrieved=len(required & in_prompt),
-        used=len(required & cited),
+        retrieved=sum(1 for pages in required if pages & in_prompt),
+        used=sum(1 for pages in required if pages & cited),
         cited_total=len(cited),
     )
 
@@ -309,7 +314,7 @@ def _log_summary(run: GenerationRun) -> None:
     outcome for someone acting on the answer.
 
     For the answerable questions, `used` is set against `retrieved`, not
-    `required`: a page the search never delivered cannot be cited, and that
+    `required`: a source the search never delivered cannot be cited, and that
     loss belongs to retrieval, which the second number shows on its own.
     """
     results = run.results
@@ -344,7 +349,7 @@ def _log_summary(run: GenerationRun) -> None:
         retrieved = sum(r.score.retrieved for r in group)
         required = sum(r.score.required for r in group)
         logger.info(
-            "%-13s used %s of retrieved pages, retrieved %s of required, %d pages cited",
+            "%-13s used %s of retrieved sources, retrieved %s of required, %d pages cited",
             category,
             _share(used, retrieved),
             _share(retrieved, required),
