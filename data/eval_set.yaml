@@ -1,5 +1,5 @@
 # Eval-Set: Fragen mit erwarteten Belegseiten (Retrieval) und Fakten (Antwort).
-version: v2
+version: v3
 questions:
   - id: q-001
     category: diagram
@@ -39,7 +39,7 @@ questions:
       Nutzen die Getriebebaureihen K.., S.. und W.. dieselbe Raumlagen-Darstellung, oder hat jede eine eigene?
     expected_sources:
       - document_id: sew-getriebe-ba
-        page: 29
+        page: 28
     expected_facts:
       - "K.., S.. und W.. nutzen dieselbe Raumlagen-Darstellung (M1-M6)."
       - "Das Handbuch bildet alle drei Baureihen gemeinsam in einer einzigen Grafik ab, nicht in getrennten Grafiken."
@@ -47,6 +47,7 @@ questions:
       Härtefall: eine Abbildung deckt drei Produktfamilien ab, testet, ob
       Retrieval sie auch für S.. oder W.. findet, obwohl K.. zuerst genannt
       wird.
+      v3: Belegseite 28 statt 29 (verzählt, die Raumlagen-Grafik steht auf S. 28).
 
   - id: q-004
     category: unanswerable
@@ -92,23 +93,24 @@ questions:
     question: >-
       In welchem Umgebungstemperaturbereich darf mein Stirnradgetriebe R.. mit Standard-CLP-Öl VG 220 laufen, und wo steht das?
     expected_sources:
-      - document_id: sew-getriebe-ba
-        page: 70
+      - document_id: sew-schmierstoffe
+        page: 5
       - document_id: sew-schmierstoffe
         page: 7
     expected_facts:
-      - "sew-getriebe-ba verweist für die zulässigen Umgebungstemperatur-Einsatzgrenzen auf die Schmierstofftabelle."
-      - "sew-getriebe-ba verweist alternativ auch auf das Typenschild für die Umgebungstemperatur-Einsatzgrenzen."
-      - "sew-getriebe-ba nennt die konkreten Temperaturgrenzen nicht selbst im Fließtext."
       - "Standard-CLP-Öl VG 220 deckt für Stirnradgetriebe R.. den Umgebungstemperaturbereich von -15°C bis +40°C ab."
+      - "-15 °C bis +80 °C über den Produkten ist die zulässige Ölsumpftemperatur, nicht die Umgebungstemperatur."
       - "Für VG 220 Standard-CLP ist u. a. das Produkt SEW GearOil Base 220 freigegeben."
       - "Für VG 220 Standard-CLP ist u. a. das Produkt Mobilgear 600 XP 220 freigegeben."
       - "Für VG 220 Standard-CLP ist u. a. das Produkt Klüberoil GEM 1-220 N freigegeben."
     notes: >-
-      Entspricht dem ersten cross_references-Muster in corpus.yaml
-      (Ölauswahl). Härtefall: Dokument 1 verweist nur auf Dokument 2, ohne
-      die Werte selbst zu nennen, testet ob Retrieval dem Verweis folgt
-      statt nur einzelne Dokumente nach Schlagwörtern zu durchsuchen.
+      Härtefall: Die Tabelle nennt zwei Bereiche, Umgebung (-15 bis +40)
+      und Ölsumpf je Produkt (-15 bis +80). Was welcher bedeutet, steht nur
+      in der Legende (S. 5). Testet, ob die Antwort beide auseinanderhält;
+      ein Lauf auf efb22b6 nannte -15 bis +80 als Umgebungstemperatur.
+      v3: Belegseiten S. 5 und S. 7 statt BA S. 70 (nur ein Verweis) und
+      S. 7. Dieselbe Tabelle und Legende stehen in sew-getriebe-ba S. 212
+      und S. 209; die zählen erst mit gleichwertigen Seiten.
 
   - id: q-008
     category: multi-hop
@@ -151,7 +153,7 @@ questions:
       Kann ich STO am G120C als Not-Aus verwenden?
     expected_sources:
       - document_id: siemens-g120c-kurz
-        page: 264
+        page: 270
     expected_facts:
       - "STO eignet sich zur Realisierung eines Not-Halts."
       - "STO eignet sich nicht zur Realisierung eines Not-Aus."
@@ -160,6 +162,7 @@ questions:
       Kontraintuitiver Fakt: STO ≠ Not-Aus, obwohl STO den Antrieb sicher
       stoppt. Testet, ob das System die Nuance wiedergibt statt pauschal
       zuzustimmen.
+      v3: Belegseite 270 statt 264 (gedruckte statt PDF-Seitenzahl).
 
   - id: q-011
     category: lookup
@@ -366,13 +369,15 @@ questions:
       Am G120C blinken RDY und BF beide schnell rot – was bedeutet das?
     expected_sources:
       - document_id: siemens-g120c-kurz
-        page: 340
+        page: 346
     expected_facts:
       - "Falsche Speicherkarte oder Firmware-Update fehlgeschlagen."
     notes: >-
       Härtefall: RDY "ROT-schnell" allein bedeutet etwas anderes als wenn
       beide LEDs gleichzeitig schnell rot blinken, testet ob das System die
       Kombination beider Spalten liest statt nur eine LED-Farbe zu matchen.
+      v3: Belegseite 346 statt 340 (gedruckte statt PDF-Seitenzahl; PDF-S. 340
+      nennt nur das fehlgeschlagene Firmware-Update mit leuchtender BF).
 
   - id: q-025
     category: table
@@ -380,7 +385,7 @@ questions:
       Bis zu welcher Umgebungstemperatur darf ein G120C FSA–FSC mit PROFINET laufen, und gilt das auch mit PROFIBUS?
     expected_sources:
       - document_id: siemens-g120c-kurz
-        page: 363
+        page: 369
     expected_facts:
       - "Mit PROFINET-Schnittstelle ist der G120C (Baugröße FSA-FSC) bis +55°C einsetzbar."
       - "Mit USS-, MB-, CANopen- oder PROFIBUS-Schnittstelle ist dieselbe Baugröße bis +60°C einsetzbar."
@@ -390,6 +395,7 @@ questions:
       Werte, abhängig von Baugröße UND Feldbus-Schnittstelle gleichzeitig,
       testet ob das System beide Dimensionen korrekt kombiniert statt
       pauschal einen Wert zu nennen.
+      v3: Belegseite 369 statt 363 (gedruckte statt PDF-Seitenzahl).
 
   - id: q-026
     category: unanswerable
@@ -558,7 +564,7 @@ questions:
       Wo finde ich die komplette Liste aller Parameter, Warnungen und Störungen des G120C, und wie ausführlich ist sie?
     expected_sources:
       - document_id: siemens-g120c-kurz
-        page: 413
+        page: 419
     expected_facts:
       - "siemens-g120c-kurz verweist für die 'komplette Liste aller Parameter, Warnungen und Störungen' auf das Listenhandbuch SINAMICS G120C."
       - "Das Listenhandbuch hat die Informationstiefe '+++'."
@@ -572,3 +578,4 @@ questions:
       das Retrieval das Listenhandbuch selbst liefern, das zählt als verfehlt.
       Zu Recht, denn die erwarteten Fakten ('+++' gegen '++') stehen nur in
       der Übersichtstabelle der Kompaktbetriebsanleitung.
+      v3: Belegseite 419 statt 413 (gedruckte statt PDF-Seitenzahl).
