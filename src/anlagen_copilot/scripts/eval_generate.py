@@ -51,8 +51,9 @@ class Score(BaseModel):
     `required` sources come from the eval set, `retrieved` of them reached the
     prompt with at least one of their pages, and `used` of those were cited.
     `cited_total` counts every cited page, expected or not. None of the four
-    counts citations: a page cited twice, or two cited pages of one source,
-    count once.
+    counts citations, so a page cited twice counts once. The first three count
+    sources and `cited_total` counts pages: two cited pages of one source are
+    one `used` but two `cited_total`.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
