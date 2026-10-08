@@ -1,6 +1,6 @@
 # Messungen: Läufe, Streuung und Spannen
 
-Ergänzt den Abschnitt [Ergebnisse](../README.md#ergebnisse) im README. Alle Zahlen hier wurden wie dort auf Eval-Set v1 gemessen; die Läufe auf v2 liegen vor, ihre Übernahme folgt.
+Ergänzt den Abschnitt [Ergebnisse](../README.md#ergebnisse) im README. Alle Zahlen hier wurden wie dort auf Eval-Set v1 gemessen; die Läufe auf v3 stehen noch aus.
 
 ## Woher die Spannen in der Ergebnistabelle stammen
 

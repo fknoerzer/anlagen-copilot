@@ -4,10 +4,6 @@
 
 Ein RAG-System für technische Dokumentation aus der Antriebstechnik: Es beantwortet Fragen zu Getrieben, Motoren, Frequenzumrichtern und Schmierstoffen aus echten Herstellerhandbüchern, mit Quellenangabe bis auf die Seite. Das Projekt zeigt Retrieval über einen schwierigen deutschsprachigen Korpus, LLM-basiertes Reranking, Antworten, die jede Aussage auf eine Handbuchseite zurückführen oder ablehnen, und zwei Evaluationen, die messen, was jede Änderung tatsächlich bringt.
 
-## Beispielantwort
-
-> **TODO(Florian):** echte Beispielantwort aus einem Generierungslauf einsetzen: Frage-ID und Wortlaut, `answered`, jede Aussage mit ihren Belegen als Handbuchtitel und Seite, dazu der Commit des Laufs.
-
 ## Das Problem
 
 Industriehandbücher sind ein schwerer Fall für Retrieval:
@@ -20,7 +16,7 @@ Der Korpus umfasst **6 Handbücher** von SEW-EURODRIVE und Siemens (SINAMICS G12
 
 ## Ergebnisse
 
-Die Retrieval-Zahlen in diesem Abschnitt wurden auf Eval-Set v1 gemessen. Das Eval-Set steht inzwischen auf v2; die Läufe darauf liegen vor, ihre Übernahme in diesen Abschnitt folgt.
+Die Retrieval-Zahlen in diesem Abschnitt wurden auf Eval-Set v1 gemessen. Das Eval-Set steht inzwischen auf v3, das sechs Belegseiten korrigiert; die Läufe darauf stehen noch aus.
 
 **Die Messfrage:** Landet die Seite, auf der die Antwort steht, unter den 5 Seiten, die an das Sprachmodell gehen? Was dort fehlt, kann keine Antwort zitieren. Am stärksten profitieren Fragen, die zwei Handbücher brauchen:
 
@@ -51,15 +47,13 @@ Der Reranker kann nur Seiten auswählen, die unter den 20 Kandidaten stehen. Dor
 
 **Was daraus folgt:** Aus 20 Kandidaten holt das Reranking die eine Seite nach vorne, die dort überhaupt vorkommt; die zweite steht erst unter den Top 50. Das verbleibende Problem ist also nicht mehr die Reihenfolge innerhalb der Kandidaten, sondern was gar nicht erst hineinkommt. Bei Multi-Hop-Fragen wie q-008 liegt das an der Vektorsuche selbst. Mehr Kandidaten helfen dort im Einzelfall, insgesamt aber nicht (30 Kandidaten: 67 %, 50: 69 %), und sie kosten proportional mehr Tokens. Bei Tabellen liegt es an der Extraktion, deshalb ist dort der nächste Hebel eine layoutbewusste Ingestion (siehe Stand und Grenzen).
 
-**Generierung:** Liegt die Belegseite im Prompt, wird sie in der Antwort zitiert? Und lehnt das Modell ab, wenn die Handbücher die Frage nicht beantworten?
-
-> **TODO(Florian):** Tabelle aus den ersten Generierungsläufen auf v2 (Commit-Hashes nennen, bei mehreren Läufen Spannen): je Fragetyp und gesamt „Belegseite im Prompt zitiert" als `x / n`, darunter die Ablehnungen. Zählweise siehe „Wie gemessen wurde".
+**Generierung:** Liegt die Belegseite im Prompt, wird sie in der Antwort zitiert? Und lehnt das Modell ab, wenn die Handbücher die Frage nicht beantworten? Die Evaluation dafür ist gebaut; ihre Zahlen folgen mit den Läufen auf Eval-Set v3.
 
 ## Wie gemessen wurde
 
-- **Eval-Set** (`data/eval_set.yaml`): 36 Fragen in fünf Kategorien (jeder Lauf stellt alle 36): Nachschlagen (10), Tabelle (8), Zeichnung (8), Zwei Handbücher (Multi-Hop, 5) und Unbeantwortbar (5). Jede Frage nennt die Seiten, die eine korrekte Antwort zitieren muss, und Fakten, die in einer Antwort stehen sollten; die Trennung in erforderliche und ergänzende Fakten folgt mit Eval-Set v3. Die unbeantwortbaren Fragen prüfen, ob die Generierung ablehnt, statt zu halluzinieren.
-- **Zählweise Retrieval:** Gemessen an 36 Belegseiten aus den 31 beantwortbaren Fragen des Eval-Sets. Die 5 Multi-Hop-Fragen brauchen je zwei Seiten; die 5 unbeantwortbaren Fragen haben keine Belegseite und zählen hier nicht mit.
-- **Zählweise Antworten:** „Belegseite im Prompt zitiert" setzt die zitierten Belegseiten ins Verhältnis zu denen, die im Prompt lagen. Was die Suche nicht geliefert hat, zählt nicht gegen die Generierung, das zeigt schon die Retrieval-Tabelle. Jede Seite zählt einmal, auch wenn mehrere Aussagen sie zitieren. Ablehnungen zählen getrennt: korrekt bei den 5 unbeantwortbaren Fragen, falsch bei den 31 beantwortbaren.
+- **Eval-Set** (`data/eval_set.yaml`): 36 Fragen in fünf Kategorien (jeder Lauf stellt alle 36): Nachschlagen (10), Tabelle (8), Zeichnung (8), Zwei Handbücher (Multi-Hop, 5) und Unbeantwortbar (5). Jede Frage nennt die Seiten, die eine korrekte Antwort zitieren muss, und Fakten, die in einer Antwort stehen sollten; eine Trennung in erforderliche und ergänzende Fakten ist geplant. Die unbeantwortbaren Fragen prüfen, ob die Generierung ablehnt, statt zu halluzinieren.
+- **Zählweise Retrieval:** Gemessen an 36 Belegen aus den 31 beantwortbaren Fragen des Eval-Sets. Die 5 Multi-Hop-Fragen brauchen je zwei; die 5 unbeantwortbaren Fragen haben keinen Beleg und zählen hier nicht mit. Ein Beleg ist eine Handbuchseite. Steht derselbe Inhalt in zwei Handbüchern, nennt das Eval-Set seit v3 beide Seiten, und eine davon reicht; gefunden zählt der Beleg dann einmal, auch wenn beide Seiten kommen.
+- **Zählweise Antworten:** „Belegseite im Prompt zitiert" setzt die zitierten Belege ins Verhältnis zu denen, die im Prompt lagen. Was die Suche nicht geliefert hat, zählt nicht gegen die Generierung, das zeigt schon die Retrieval-Tabelle. Jeder Beleg zählt einmal, auch wenn mehrere Aussagen ihn zitieren. Ablehnungen zählen getrennt: korrekt bei den 5 unbeantwortbaren Fragen, falsch bei den 31 beantwortbaren.
 - **Reproduzierbarkeit:** Jeder Lauf wird mit seiner Konfiguration und seinem Commit-Hash protokolliert, die Retrieval-Läufe in `data/retrieval/eval_runs.jsonl`, die Antwort-Läufe samt vollständiger Antwort je Frage in `data/generation/eval_runs.jsonl` ([ADR 008](docs/adr/008-eval-laeufe-protokollieren.md)). Die Tabellenwerte sind Spannen über wiederholte Läufe mit gleichen Parametern. Welche Läufe das sind, woher die Streuung kommt und wie die Spalte „Nur Vektorsuche" mit dem früheren HNSW-Index zusammenhängt, steht in [docs/messungen.md](docs/messungen.md).
 
 ### Was das Reranking kostet
@@ -70,7 +64,7 @@ Der Reranker kann nur Seiten auswählen, die unter den 20 Kandidaten stehen. Dor
 | Output-Tokens je Frage | — | ~320 |
 | Kosten je Eval-Lauf (alle 36 Fragen) | < 0,01 $ | ~0,62 $ |
 
-Grundlage sind die je Lauf protokollierten Tokenzahlen (560.094 Input, 11.620 Output bei 20 Kandidaten) und der Listenpreis von Claude Haiku 4.5: 1 $ je Mio. Input-, 5 $ je Mio. Output-Tokens. Eine Latenzangabe fehlt, weil die zugrunde liegenden v1-Läufe keine Zeiten enthalten; die Läufe auf v2 erfassen sie bereits je Frage, getrennt nach Suche und Reranking, und liefern die Angabe mit der Umstellung nach.
+Grundlage sind die je Lauf protokollierten Tokenzahlen (560.094 Input, 11.620 Output bei 20 Kandidaten) und der Listenpreis von Claude Haiku 4.5: 1 $ je Mio. Input-, 5 $ je Mio. Output-Tokens. Eine Latenzangabe fehlt, weil die zugrunde liegenden v1-Läufe keine Zeiten enthalten; neuere Läufe erfassen sie je Frage, getrennt nach Suche und Reranking, und die Angabe folgt mit den Läufen auf v3.
 
 Das Reranking ist der teuerste Schritt der Pipeline: Statt eines Embedding-Aufrufs gehen 20 vollständige Handbuchseiten an ein Sprachmodell. Bei Nachschlagefragen, die schon ohne Reranking bei 60–70 % liegen, steht dieser Aufwand in einem schlechteren Verhältnis zum Ertrag als bei Multi-Hop-Fragen. Die Entscheidung könnte künftig je Fragetyp fallen statt pauschal.
 
@@ -81,7 +75,7 @@ Das Reranking ist der teuerste Schritt der Pipeline: Statt eines Embedding-Aufru
 - [x] LLM-Reranking
 - [x] Retrieval-Evaluation mit protokollierten Läufen
 - [x] Antwortgenerierung mit Seitenzitaten
-- [ ] Evaluation der Antworten: Ablehnung und Belege gebaut, erste Läufe stehen aus; Prüfung der erwarteten Fakten folgt
+- [ ] Evaluation der Antworten: Ablehnung und Belege gebaut, Läufe auf Eval-Set v3 stehen aus; Prüfung der erwarteten Fakten folgt
 - [ ] Layoutbewusste Ingestion-Strategie für Tabellen und Zeichnungen (Docling oder Azure Document Intelligence, noch offen)
 
 ### Bekannte Grenzen
