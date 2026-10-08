@@ -2,7 +2,7 @@
 
 ## Kontext
 
-Im ersten Lauf gegen Eval-Set v2 (`2ac65fd`, nur Vektorsuche, `k=5`) hatte
+Im ersten Lauf gegen Eval-Set v2 (`d60ddd5`, nur Vektorsuche, `k=5`) hatte
 q-036 einen `best_score` von genau `0.0`: Die Suche hatte keine einzige Seite
 zurückgegeben. Die Ursache liegt nicht in der Frage, sondern im Plan:
 
@@ -17,7 +17,7 @@ zurückgegeben. Die Ursache liegt nicht in der Frage, sondern im Plan:
   Liste mit drei statt fünf Seiten sieht im Ergebnis aus wie ein gewöhnlicher
   Fehltreffer.
 
-Vergleich über alle 36 v2-Fragen, `k=5`, Stand `2ac65fd`, 1.322 Seiten in
+Vergleich über alle 36 v2-Fragen, `k=5`, Stand `d60ddd5`, 1.322 Seiten in
 `chunks`. Zeit ist die reine Datenbankabfrage (lokal in Docker), je Frage der
 Median aus drei Wiederholungen, davon der Median über alle Fragen. Der
 HNSW-Plan ist in allen HNSW-Zeilen erzwungen (`enable_seqscan`,
@@ -70,7 +70,7 @@ gegen die vollständige Suche gezeigt hat, dass er keine Belegseiten kostet.
   Wiederholung mehr für eine Spanne; die Streuung der Reranking-Läufe kommt
   allein vom Reranker.
 - Betroffen waren nur Läufe, die über den Index liefen, nach heutigem Plan also
-  `k=5` ohne Reranker: `2ac65fd` in v2, `9db58dc` und `6e766d3` in v1. Die
+  `k=5` ohne Reranker: `d60ddd5` in v2, `9db58dc` und `c5c9dfa` in v1. Die
   Reranking-Läufe holen 20 und mehr Kandidaten und liefen vollständig. Welchen Plan
   die v1-Läufe damals tatsächlich hatten, lässt sich nachträglich nicht prüfen.
 - Die 1536 Dimensionen bleiben. Ihr Grund in [ADR 003](003-embedding-dimensionen.md),

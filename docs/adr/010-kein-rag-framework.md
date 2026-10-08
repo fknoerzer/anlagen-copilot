@@ -12,7 +12,7 @@ importiert.
 
 Die Pipeline ruft die Bibliotheken direkt auf: `openai` für Embeddings,
 `anthropic` für das Reranking, `psycopg` mit `pgvector` für die Datenbank,
-Pydantic für Schemas und Validierung. `langchain` wurde entfernt (`27f3503`).
+Pydantic für Schemas und Validierung. `langchain` wurde entfernt (`68bc7d4`).
 
 ## Alternativen
 

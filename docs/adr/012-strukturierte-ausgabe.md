@@ -9,8 +9,8 @@ ausgeführt wird, und `tool_choice`, das seinen Aufruf erzwingt. Das
 durch. Beide Pannen aus ADR 004 kommen daher:
 
 - Das Modell brach das Schema mit IDs gelegentlich. Der Umweg über Noten nach
-  Position (`c0928ff`) senkte den Anteil gefundener Belegseiten auf v1 von
-  66,7 % auf 58,3 % und wurde zurückgenommen (`1f4d839`).
+  Position (`b77966d`) senkte den Anteil gefundener Belegseiten auf v1 von
+  66,7 % auf 58,3 % und wurde zurückgenommen (`530086d`).
 - Beim längsten Prompt kam die Liste in 3 von 8 Aufrufen als String ohne
   schließende Klammer. Eine eigene Reparatur ergänzte die Klammer.
 
@@ -56,7 +56,7 @@ ADR 004 bleibt unverändert. Die Klammer-Reparatur entfällt.
   Grammatik kompiliert. Danach ist sie 24 Stunden zwischengespeichert.
 - Gemessen auf Eval-Set v2 mit 20 Kandidaten, je drei Läufe:
 
-  | | Tool-Call (`fc391fd`) | Strukturierte Ausgabe (`5c36cdb`) |
+  | | Tool-Call (`a1ba1d3`) | Strukturierte Ausgabe (`b03d87b`) |
   |---|---:|---:|
   | Belegseiten in den Top 5 | 23 / 36 | 23 / 36 |
   | Output-Tokens je Lauf | 11.340–11.480 | 8.928 |

@@ -118,7 +118,7 @@ questions:
       Härtefall: Die Tabelle nennt zwei Bereiche, Umgebung (-15 bis +40)
       und Ölsumpf je Produkt (-15 bis +80). Was welcher bedeutet, steht nur
       in der Legende (S. 5). Testet, ob die Antwort beide auseinanderhält;
-      ein Lauf auf efb22b6 nannte -15 bis +80 als Umgebungstemperatur.
+      ein Lauf auf da919f3 nannte -15 bis +80 als Umgebungstemperatur.
       v3: Zwei Quellen statt BA S. 70 (nur ein Verweis) und S. 7: die
       Tabelle (sew-schmierstoffe S. 7 oder sew-getriebe-ba S. 212) und die
       Legende (sew-schmierstoffe S. 5 oder sew-getriebe-ba S. 209); je Quelle

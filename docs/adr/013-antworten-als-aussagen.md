@@ -16,7 +16,7 @@ Korpus aber zwei Schwächen:
 Ob das Modell antwortet oder ablehnt, muss außerdem als Zustand vorliegen, nicht
 als Satz, der erst erkannt werden muss. Eine Schwelle auf dem Score der
 Vektorsuche taugt dafür nicht, weil Treffer und unbeantwortbare Fragen
-überlappen. Im Lauf `3b25613` (v2, nur Vektorsuche) erreicht die beste
+überlappen. Im Lauf `c495cbc` (v2, nur Vektorsuche) erreicht die beste
 unbeantwortbare Frage einen Score von 0,663, der schwächste Treffer nur 0,461.
 
 ## Entscheidung

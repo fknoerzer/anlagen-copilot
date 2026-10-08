@@ -28,18 +28,18 @@ Nur diese Klammer wird ergänzt, ein Komma davor wird entfernt. Alles andere bri
 
 - **Freitext mit Parsing.** Fehleranfällig, kein Schema.
 - **Stufen nach Position** (`[3, 0, 2, …]`, die n-te Zahl gehört zur n-ten
-  Seite). Eingeführt mit `c0928ff`, weil das Modell das Schema mit IDs
+  Seite). Eingeführt mit `b77966d`, weil das Modell das Schema mit IDs
   gelegentlich brach, und gemessen:
 
   | Format | Output-Tokens je Lauf | Anteil gefundener Belegseiten |
   |---|---:|---:|
-  | Mit Seiten-ID (`4d187b6`) | 11.620 | 66,7 % |
-  | Nach Position (`c0928ff`) | 3.312 | 58,3 % |
+  | Mit Seiten-ID (`95b591c`) | 11.620 | 66,7 % |
+  | Nach Position (`b77966d`) | 3.312 | 58,3 % |
 
   Das Modell vergab im Positionsformat überwiegend Nullen, der Reranker
   änderte die Reihenfolge kaum noch. Die 58,3 % liegen unter der Spanne, die drei Läufe im ID-Format
   erreichen (66,7–69,4 %), der Abstand ist also größer als die Streuung.
-  Zurückgenommen mit `1f4d839`, dessen Lauf das ID-Format bestätigt.
+  Zurückgenommen mit `530086d`, dessen Lauf das ID-Format bestätigt.
 
 ## Konsequenzen
 
