@@ -157,7 +157,7 @@ def rerank(
 
     message = client.messages.create(
         model=model,
-        # 20 grades take about 250 output tokens (`5c36cdb`). Only tokens written
+        # 20 grades take about 250 output tokens (`b03d87b`). Only tokens written
         # are billed, so the headroom costs nothing.
         max_tokens=128 + 64 * len(candidates),
         system=_SYSTEM_PROMPT,
