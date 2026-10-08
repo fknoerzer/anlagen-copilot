@@ -16,57 +16,34 @@ Der Korpus umfasst **6 Handbücher** von SEW-EURODRIVE und Siemens (SINAMICS G12
 
 ## Ergebnisse
 
-Die Retrieval-Zahlen in diesem Abschnitt wurden auf Eval-Set v1 gemessen. Das Eval-Set steht inzwischen auf v3, das sechs Belegseiten korrigiert; die Läufe darauf stehen noch aus.
+**Die Messfrage:** Landet die Seite, auf der die Antwort steht, unter den 5 Seiten, die an das Sprachmodell gehen? Was dort fehlt, kann keine Antwort zitieren.
 
-**Die Messfrage:** Landet die Seite, auf der die Antwort steht, unter den 5 Seiten, die an das Sprachmodell gehen? Was dort fehlt, kann keine Antwort zitieren. Am stärksten profitieren Fragen, die zwei Handbücher brauchen:
+```mermaid
+xychart-beta horizontal
+    title "Belege gefunden, von 36"
+    x-axis ["Vektorsuche, Top 5", "Reranking, Top 5 (27–28)", "Unter den 20 Kandidaten", "Vektorsuche, Top 50"]
+    y-axis "Belege" 0 --> 36
+    bar [22, 27, 30, 33]
+```
 
-| Fragetyp | Nur Vektorsuche | Mit Reranking |
-|---|---:|---:|
-| Zwei Handbücher (Multi-Hop) | 2–3 / 10 | 5–6 / 10 |
-| Zeichnung | 6 / 8 | 7 / 8 |
-| Nachschlagen | 6–7 / 10 | 8 / 10 |
-| Tabelle | 3–4 / 8 | 3–4 / 8 |
-| **Gesamt** | **18–19 / 36 (50–53 %)** | **24–25 / 36 (67–69 %)** |
+Beim Reranking holt die Vektorsuche 20 Kandidaten, ein Sprachmodell (Claude Haiku 4.5) wählt daraus die besten 5. Es schöpft die 30 Belege unter den Kandidaten fast aus; die übrigen **6 kommen gar nicht erst unter die Kandidaten**. Der nächste Hebel liegt also vor dem Reranking, nicht darin. Am stärksten profitieren Fragen, die zwei Handbücher brauchen:
 
-Beim Reranking holt die Vektorsuche zunächst 20 Kandidaten, ein Sprachmodell (Claude Haiku 4.5) wählt daraus die besten 5. Bei Tabellen liegen beide Spannen gleich: dort ist **keine Verbesserung messbar**, der Unterschied bleibt innerhalb der Streuung der Vektorsuche.
+| Fragetyp | Nur Vektorsuche | Unter den 20 Kandidaten | Mit Reranking |
+|---|---:|---:|---:|
+| Zwei Handbücher (Multi-Hop) | 2 / 10 | 7 / 10 | 5–6 / 10 |
+| Zeichnung | 7 / 8 | 8 / 8 | 7 / 8 |
+| Nachschlagen | 7 / 10 | 8 / 10 | 8 / 10 |
+| Tabelle | 6 / 8 | 7 / 8 | 7 / 8 |
+| **Gesamt** | **22 / 36 (61 %)** | **30 / 36 (83 %)** | **27–28 / 36 (75–78 %)** |
 
-Der Reranker kann nur Seiten auswählen, die unter den 20 Kandidaten stehen. Dort sind 24–26 der 36 Belegseiten dabei (67–72 %, gemessen in denselben zwei Läufen der Vektorsuche wie oben). Das ist also das Maximum, und mit 24–25 Seiten schöpft der Reranker es fast aus. Von den 11–12 Seiten, die am Ende fehlen, sind **mindestens 10 gar nicht erst unter den Kandidaten**. Bei Tabellen etwa sind dort nur 4–5 von 8 Belegseiten dabei.
+**Antworten** (Claude Sonnet 5): Liegt ein Beleg im Prompt, zitiert die Antwort ihn in 86–92 % der Fälle. Von 5 Fragen, die die Handbücher nicht beantworten, lehnt das Modell 4–5 ab; von 31 beantwortbaren lehnt es 3 fälschlich ab.
 
-**Ein Beispiel** (Frage `q-008`): *Der Umrichter meldet die Störung F07011 "Motor Übertemperatur". Welche Reaktion löst das am Umrichter aus, und was sollte laut der Motor-Betriebsanleitung zusätzlich geprüft werden, wenn sich der Motor zu stark erwärmt?* Die Störmeldung kommt vom Siemens-Umrichter, die Prüfschritte stehen in der Anleitung des SEW-Motors:
+Gemessen auf Eval-Set v3, Commit `a2454fd`; Spannen über drei Läufe, weil der Reranker nicht deterministisch ist. Läufe, Zählweise, ein Beispiel Schritt für Schritt und die Zahlen je Fragetyp für die Antworten stehen in [docs/messungen.md](docs/messungen.md).
 
-| Beleg | Was dort steht |
-|---|---|
-| SINAMICS G120C Listenhandbuch, S. 501 | F07011 löst die Reaktion AUS2 aus; Ursachen: Überlastung, zu hohe Umgebungstemperatur, Sensorfehler |
-| SEW Motoren-Betriebsanleitung DRN, S. 261 | „Motor erwärmt sich zu stark": Kühlluft, Luftfilter und Umgebungstemperatur prüfen, ggf. Fremdlüfter nachrüsten |
-
-| | Belegseiten unter den Top 5 |
-|---|---:|
-| Nur Vektorsuche | 0 / 2 |
-| Mit Reranking (20 Kandidaten, drei Läufe) | 1 / 2 |
-| Mit Reranking (50 Kandidaten, ein Lauf) | 2 / 2 |
-
-**Was daraus folgt:** Aus 20 Kandidaten holt das Reranking die eine Seite nach vorne, die dort überhaupt vorkommt; die zweite steht erst unter den Top 50. Das verbleibende Problem ist also nicht mehr die Reihenfolge innerhalb der Kandidaten, sondern was gar nicht erst hineinkommt. Bei Multi-Hop-Fragen wie q-008 liegt das an der Vektorsuche selbst. Mehr Kandidaten helfen dort im Einzelfall, insgesamt aber nicht (30 Kandidaten: 67 %, 50: 69 %), und sie kosten proportional mehr Tokens. Bei Tabellen liegt es an der Extraktion, deshalb ist dort der nächste Hebel eine layoutbewusste Ingestion (siehe Stand und Grenzen).
-
-**Generierung:** Liegt die Belegseite im Prompt, wird sie in der Antwort zitiert? Und lehnt das Modell ab, wenn die Handbücher die Frage nicht beantworten? Die Evaluation dafür ist gebaut; ihre Zahlen folgen mit den Läufen auf Eval-Set v3.
-
-## Wie gemessen wurde
-
-- **Eval-Set** (`data/eval_set.yaml`): 36 Fragen in fünf Kategorien (jeder Lauf stellt alle 36): Nachschlagen (10), Tabelle (8), Zeichnung (8), Zwei Handbücher (Multi-Hop, 5) und Unbeantwortbar (5). Jede Frage nennt die Seiten, die eine korrekte Antwort zitieren muss, und Fakten, die in einer Antwort stehen sollten; eine Trennung in erforderliche und ergänzende Fakten ist geplant. Die unbeantwortbaren Fragen prüfen, ob die Generierung ablehnt, statt zu halluzinieren.
-- **Zählweise Retrieval:** Gemessen an 36 Belegen aus den 31 beantwortbaren Fragen des Eval-Sets. Die 5 Multi-Hop-Fragen brauchen je zwei; die 5 unbeantwortbaren Fragen haben keinen Beleg und zählen hier nicht mit. Ein Beleg ist eine Handbuchseite. Steht derselbe Inhalt in zwei Handbüchern, nennt das Eval-Set seit v3 beide Seiten, und eine davon reicht; gefunden zählt der Beleg dann einmal, auch wenn beide Seiten kommen.
-- **Zählweise Antworten:** „Belegseite im Prompt zitiert" setzt die zitierten Belege ins Verhältnis zu denen, die im Prompt lagen. Was die Suche nicht geliefert hat, zählt nicht gegen die Generierung, das zeigt schon die Retrieval-Tabelle. Jeder Beleg zählt einmal, auch wenn mehrere Aussagen ihn zitieren. Ablehnungen zählen getrennt: korrekt bei den 5 unbeantwortbaren Fragen, falsch bei den 31 beantwortbaren.
-- **Reproduzierbarkeit:** Jeder Lauf wird mit seiner Konfiguration und seinem Commit-Hash protokolliert, die Retrieval-Läufe in `data/retrieval/eval_runs.jsonl`, die Antwort-Läufe samt vollständiger Antwort je Frage in `data/generation/eval_runs.jsonl` ([ADR 008](docs/adr/008-eval-laeufe-protokollieren.md)). Die Tabellenwerte sind Spannen über wiederholte Läufe mit gleichen Parametern. Welche Läufe das sind, woher die Streuung kommt und wie die Spalte „Nur Vektorsuche" mit dem früheren HNSW-Index zusammenhängt, steht in [docs/messungen.md](docs/messungen.md).
-
-### Was das Reranking kostet
-
-| | Nur Vektorsuche | Mit Reranking |
-|---|---:|---:|
-| Input-Tokens je Frage | — | ~15.600 |
-| Output-Tokens je Frage | — | ~320 |
-| Kosten je Eval-Lauf (alle 36 Fragen) | < 0,01 $ | ~0,62 $ |
-
-Grundlage sind die je Lauf protokollierten Tokenzahlen (560.094 Input, 11.620 Output bei 20 Kandidaten) und der Listenpreis von Claude Haiku 4.5: 1 $ je Mio. Input-, 5 $ je Mio. Output-Tokens. Eine Latenzangabe fehlt, weil die zugrunde liegenden v1-Läufe keine Zeiten enthalten; neuere Läufe erfassen sie je Frage, getrennt nach Suche und Reranking, und die Angabe folgt mit den Läufen auf v3.
-
-Das Reranking ist der teuerste Schritt der Pipeline: Statt eines Embedding-Aufrufs gehen 20 vollständige Handbuchseiten an ein Sprachmodell. Bei Nachschlagefragen, die schon ohne Reranking bei 60–70 % liegen, steht dieser Aufwand in einem schlechteren Verhältnis zum Ertrag als bei Multi-Hop-Fragen. Die Entscheidung könnte künftig je Fragetyp fallen statt pauschal.
+| Kosten und Latenz | Nur Vektorsuche | Mit Reranking | Antwort dazu |
+|---|---:|---:|---:|
+| je Eval-Lauf (36 Fragen) | < 0,01 $ | ~0,60 $ | ~0,58 $ |
+| je Frage (Median) | 0,2 s | 2,8–3,0 s | 3,3–3,8 s |
 
 ## Stand und Grenzen
 
@@ -75,12 +52,12 @@ Das Reranking ist der teuerste Schritt der Pipeline: Statt eines Embedding-Aufru
 - [x] LLM-Reranking
 - [x] Retrieval-Evaluation mit protokollierten Läufen
 - [x] Antwortgenerierung mit Seitenzitaten
-- [ ] Evaluation der Antworten: Ablehnung und Belege gebaut, Läufe auf Eval-Set v3 stehen aus; Prüfung der erwarteten Fakten folgt
+- [ ] Evaluation der Antworten: Ablehnung und Belege gemessen; Prüfung der erwarteten Fakten folgt
 - [ ] Layoutbewusste Ingestion-Strategie für Tabellen und Zeichnungen (Docling oder Azure Document Intelligence, noch offen)
 
 ### Bekannte Grenzen
 
-Das Eval-Set ist klein: Eine Belegseite bewegt den Gesamtwert um knapp 3 Prozentpunkte, bei Multi-Hop um 10, und bei den fünf unbeantwortbaren Fragen zählt jede Frage 20 Prozentpunkte. Gemessen wird auf einem einzigen Korpus aus sechs Handbüchern zweier Hersteller. Die Textextraktion mit pypdf verliert die Spaltenstruktur von Tabellen, sodass sich Werte ihren Zeilen nicht mehr sicher zuordnen lassen. Die erwarteten Fakten der Antworten sind noch nicht geprüft, und die Zahlen im Abschnitt Ergebnisse stammen noch aus Eval-Set v1.
+Das Eval-Set ist klein: Eine Belegseite bewegt den Gesamtwert um knapp 3 Prozentpunkte, bei Multi-Hop um 10, und bei den fünf unbeantwortbaren Fragen zählt jede Frage 20 Prozentpunkte. Gemessen wird auf einem einzigen Korpus aus sechs Handbüchern zweier Hersteller. Die Textextraktion mit pypdf verliert die Spaltenstruktur von Tabellen, sodass sich Werte ihren Zeilen nicht mehr sicher zuordnen lassen. Die erwarteten Fakten der Antworten sind noch nicht geprüft.
 
 ## Architektur
 
