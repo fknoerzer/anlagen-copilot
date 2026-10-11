@@ -32,8 +32,10 @@ läuft vollständig, pgvector bleibt.
   demselben Image.
 - Schema, Constraints und Suche sind SQL und lassen sich mit `EXPLAIN` prüfen.
 - Der HNSW-Index nimmt höchstens 2000 Dimensionen
-  ([ADR 003](003-embedding-dimensionen.md)).
+  ([ADR 003](003-embedding-dimensionen.md)). Entfällt mit
+  [ADR 011](011-vollstaendige-suche-statt-hnsw.md), solange der Index nicht zurückkommt.
 - Der Index kennt die `strategy`-Spalte nicht, der Filter greift erst nach dem
-  Scan ([ADR 002](002-strategie-als-spalte.md)).
+  Scan ([ADR 002](002-strategie-als-spalte.md)). Entfällt ebenso mit ADR 011:
+  Die vollständige Suche filtert vor dem Sortieren.
 - **Offen:** Das Image-Tag `pg16` folgt der jeweils neuesten pgvector-Version.
   Ein `docker compose pull` kann eine andere unterschieben.
