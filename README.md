@@ -1,6 +1,9 @@
 # Anlagen-Copilot
 
 [![CI](https://github.com/fknoerzer/anlagen-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/fknoerzer/anlagen-copilot/actions/workflows/ci.yml)
+[![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
+
+> **In Arbeit:** Als Nächstes kommen die Prüfung der Antwortinhalte gegen die erwarteten Fakten und eine layoutbewusste Ingestion für Tabellen und Zeichnungen (siehe [Stand und Grenzen](#stand-und-grenzen)).
 
 Ein RAG-System für technische Dokumentation aus der Antriebstechnik: Es beantwortet Fragen zu Getrieben, Motoren, Frequenzumrichtern und Schmierstoffen aus echten Herstellerhandbüchern, mit Quellenangabe bis auf die Seite. Zu jeder Frage holt eine Vektorsuche 20 Handbuchseiten, ein Sprachmodell wählt daraus die 5 relevantesten (Reranking), ein zweites antwortet nur aus diesen 5.
 
