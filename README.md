@@ -2,7 +2,9 @@
 
 [![CI](https://github.com/fknoerzer/anlagen-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/fknoerzer/anlagen-copilot/actions/workflows/ci.yml)
 
-Ein RAG-System für technische Dokumentation aus der Antriebstechnik: Es beantwortet Fragen zu Getrieben, Motoren, Frequenzumrichtern und Schmierstoffen aus echten Herstellerhandbüchern, mit Quellenangabe bis auf die Seite. Das Projekt zeigt Retrieval über einen schwierigen deutschsprachigen Korpus, LLM-basiertes Reranking, Antworten, die jede Aussage auf eine Handbuchseite zurückführen oder ablehnen, und zwei Evaluationen, die messen, was jede Änderung tatsächlich bringt.
+Ein RAG-System für technische Dokumentation aus der Antriebstechnik: Es beantwortet Fragen zu Getrieben, Motoren, Frequenzumrichtern und Schmierstoffen aus echten Herstellerhandbüchern, mit Quellenangabe bis auf die Seite. Zu jeder Frage holt eine Vektorsuche 20 Handbuchseiten, ein Sprachmodell wählt daraus die 5 relevantesten (Reranking), ein zweites antwortet nur aus diesen 5.
+
+Das Projekt zeigt Retrieval über einen schwierigen deutschsprachigen Korpus, LLM-basiertes Reranking, Antworten, die jede Aussage auf eine Handbuchseite zurückführen oder ablehnen, und zwei Evaluationen, an denen sich jede Änderung messen lässt: Die erste prüft, ob die richtige Seite gefunden wird; die zweite bisher, ob die Antwort sie zitiert und unbeantwortbare Fragen ablehnt.
 
 ## Das Problem
 
@@ -15,6 +17,12 @@ Industriehandbücher sind ein schwerer Fall für Retrieval:
 Der Korpus umfasst **6 Handbücher** von SEW-EURODRIVE und Siemens (SINAMICS G120C) mit zusammen 1.810 Seiten. Davon werden 1.334 Seiten eingelesen, 1.322 mit extrahierbarem Text landen im Index: Aus dem 572-seitigen Siemens-Listenhandbuch wird nur Kapitel 4 „Störungen und Warnungen" (S. 453–548) eingelesen, weil die Fragen der Instandhaltung dort ansetzen. Die übrigen Kapitel (rund 310 Seiten Parameterlisten, 135 Seiten Funktionspläne und der Anhang) sind bewusst ausgelassen.
 
 ## Ergebnisse
+
+Das Eval-Set hat 36 Fragen: 31 beantwortbare mit zusammen 36 Belegseiten (Multi-Hop-Fragen brauchen zwei) und 5 unbeantwortbare. Ein **Beleg** ist die Handbuchseite, auf der die Antwort steht; gezählt wird beim Retrieval je Beleg, nicht je Frage.
+
+Gemessen auf Eval-Set v3, Commit `a2454fd`; Spannen über drei Läufe, weil der Reranker nicht deterministisch ist. Läufe, Zählweise, ein Beispiel Schritt für Schritt und die Zahlen je Fragetyp für die Antworten stehen in [docs/messungen.md](docs/messungen.md).
+
+### Retrieval
 
 **Die Messfrage:** Landet die Seite, auf der die Antwort steht, unter den 5 Seiten, die an das Sprachmodell gehen? Was dort fehlt, kann keine Antwort zitieren.
 
@@ -36,14 +44,23 @@ Beim Reranking holt die Vektorsuche 20 Kandidaten, ein Sprachmodell (Claude Haik
 | Tabelle | 6 / 8 | 7 / 8 | 7 / 8 |
 | **Gesamt** | **22 / 36 (61 %)** | **30 / 36 (83 %)** | **27–28 / 36 (75–78 %)** |
 
-**Antworten** (Claude Sonnet 5): Liegt ein Beleg im Prompt, zitiert die Antwort ihn in 86–92 % der Fälle. Von 5 Fragen, die die Handbücher nicht beantworten, lehnt das Modell 4–5 ab; von 31 beantwortbaren lehnt es 3 fälschlich ab.
+### Generierung
 
-Gemessen auf Eval-Set v3, Commit `a2454fd`; Spannen über drei Läufe, weil der Reranker nicht deterministisch ist. Läufe, Zählweise, ein Beispiel Schritt für Schritt und die Zahlen je Fragetyp für die Antworten stehen in [docs/messungen.md](docs/messungen.md).
+Claude Sonnet 5 antwortet aus den 5 Seiten nach dem Reranking.
 
-| Kosten und Latenz | Nur Vektorsuche | Mit Reranking | Antwort dazu |
-|---|---:|---:|---:|
-| je Eval-Lauf (36 Fragen) | < 0,01 $ | ~0,60 $ | ~0,58 $ |
-| je Frage (Median) | 0,2 s | 2,8–3,0 s | 3,3–3,8 s |
+- **Belege:** Liegt ein Beleg im Prompt, zitiert die Antwort ihn in 86–92 % der Fälle.
+- **Ablehnung:** Von 5 Fragen, die die Handbücher nicht beantworten, lehnt das Modell 4–5 ab; von 31 beantwortbaren lehnt es 3 fälschlich ab.
+
+Ob die Aussagen inhaltlich stimmen, ist noch nicht gemessen: Der Abgleich mit den erwarteten Fakten im Eval-Set steht noch aus.
+
+### Kosten und Latenz
+
+| | Nur Vektorsuche | Mit Reranking | Antwortgenerierung (zusätzlich) | Gesamt |
+|---|---:|---:|---:|---:|
+| Kosten je Eval-Lauf (36 Fragen) | < 0,01 $ | ~0,60 $ | ~0,58 $ | ~1,18 $ |
+| Latenz je Frage (Median) | 0,2 s | 2,8–3,0 s | 3,3–3,8 s | ~6,1–6,8 s |
+
+Die Gesamtspalte ist die Summe der beiden Spalten davor, kein eigener Messwert; bei der Latenz ist es die Summe zweier Mediane.
 
 ## Stand und Grenzen
 
@@ -72,7 +89,13 @@ flowchart LR
     E --> F[(PostgreSQL<br/>pgvector)]
 ```
 
-Die Handbücher werden anhand des Manifests `data/raw/corpus.yaml` von den Herstellerseiten geladen, seitenweise extrahiert und eingebettet. Zeilen, die auf mindestens 85 % der Seiten eines Dokuments wiederkehren (Kopf- und Fußzeilen), werden vorher entfernt, damit sie nicht jede Seite gleich aussehen lassen.
+Die Handbücher werden anhand des Manifests `data/raw/corpus.yaml` von den Herstellerseiten geladen.
+
+- **Extraktion:** pypdf liest Seite für Seite; ftfy repariert Zeichen, die bei unbekanntem Font-Encoding als unsichtbare Steuerzeichen ankommen.
+- **Bereinigung:** Zeilen, die auf mindestens 85 % der Seiten eines Dokuments wiederkehren (Kopf- und Fußzeilen), werden entfernt, damit sie nicht jede Seite gleich aussehen lassen.
+- **Chunking:** Eine Seite = ein Chunk, mit der Seitennummer des Original-PDFs, damit jede Quelle seitengenau zitierbar ist. Seiten ohne Text (Scans, Grafiken) fallen weg. ([ADR 001](docs/adr/001-seite-als-chunk.md))
+- **Embedding:** `text-embedding-3-large` mit 1536 Dimensionen; Fragen laufen durch dieselbe Funktion und landen so im selben Vektorraum. ([ADR 003](docs/adr/003-embedding-dimensionen.md))
+- **Speichern:** Eine Transaktion je Dokument; ein erneuter Lauf ersetzt den alten Stand. ([ADR 006](docs/adr/006-transaktion-pro-dokument.md))
 
 ### Abfrage
 
@@ -82,13 +105,23 @@ flowchart LR
     F[(PostgreSQL<br/>pgvector)] --> R
     R --> S[LLM Reranker<br/>Claude Haiku]
     S --> T[Top 5 nach Reranking<br/>mit Seitenangabe]
-    T --> U[Antwortgenerierung<br/>Claude Sonnet]
-    U --> V[Aussagen mit<br/>Seiten-Belegen]
 ```
 
 - **Retrieval:** Die Vektorsuche holt 20 Kandidaten; optional begrenzt auf *n* Seiten pro Dokument.
 - **Reranking:** Ein LLM liest Frage und Kandidaten gemeinsam und vergibt je Seite eine Relevanzstufe von 0 bis 3. Sortiert wird nach Stufe, innerhalb einer Stufe nach Vektor-Score.
-- **Generierung:** Ein LLM antwortet nur aus den 5 Seiten, als Liste von Aussagen, von denen jede die Seiten nennt, aus denen sie stammt. Tragen die Seiten die Frage nicht, lehnt es ab, statt aus eigenem Wissen zu antworten. Ungültige Seitenangaben, eine Ablehnung mit Belegen oder eine Antwort ganz ohne Beleg lassen den Aufruf scheitern.
+
+### Generierung
+
+```mermaid
+flowchart LR
+    Q[Frage] --> U[Antwortgenerierung<br/>Claude Sonnet]
+    T[Top 5 Seiten] --> U
+    U --> V[Aussagen mit<br/>Seiten-Belegen]
+```
+
+- **Antwort:** Ein LLM antwortet nur aus den 5 Seiten, als Liste von Aussagen, von denen jede die Seiten nennt, aus denen sie stammt. ([ADR 013](docs/adr/013-antworten-als-aussagen.md))
+- **Ablehnung:** Tragen die Seiten die Frage nicht, lehnt es ab, statt aus eigenem Wissen zu antworten.
+- **Prüfung:** Ungültige Seitenangaben, eine Ablehnung mit Belegen oder eine Antwort ganz ohne Beleg lassen den Aufruf scheitern.
 
 ### Tech Stack
 
@@ -105,7 +138,7 @@ flowchart LR
 Die wichtigsten Entscheidungen in einem Satz. Kontext, verworfene Alternativen und Konsequenzen stehen im jeweils verlinkten Architecture Decision Record; alle dreizehn ADRs listet [docs/adr/README.md](docs/adr/README.md).
 
 - **Eine Seite = ein Chunk**, damit jede Quelle auf die PDF-Seite genau zitierbar ist. ([ADR 001](docs/adr/001-seite-als-chunk.md))
-- **Reranker-Noten mit Seiten-ID, über strukturierte Ausgabe.** Ein Format ohne IDs sparte gut 70 % der Output-Tokens, senkte aber den Anteil gefundener Belegseiten von 67 % auf 58 % (v1). Seit die API das Schema der Noten durchsetzt, statt es nur zu beschreiben, bleiben die Belegseiten gleich (in allen drei Läufen 23 von 36 auf `b03d87b`, v2) bei 22 % weniger Output-Tokens. ([ADR 004](docs/adr/004-reranker-ausgabe.md), [ADR 012](docs/adr/012-strukturierte-ausgabe.md))
+- **Reranker-Noten mit Seiten-ID, über strukturierte Ausgabe.** Gemessen auf älteren Versionen des Eval-Sets (v1, v2), daher andere Zahlen als oben: Ein Format ohne IDs sparte gut 70 % der Output-Tokens, senkte aber den Anteil gefundener Belegseiten von 67 % auf 58 % (v1). Seit die API das Schema der Noten durchsetzt, statt es nur zu beschreiben, bleiben die Belegseiten gleich (in allen drei Läufen 23 von 36 auf `b03d87b`, v2) bei 22 % weniger Output-Tokens. ([ADR 004](docs/adr/004-reranker-ausgabe.md), [ADR 012](docs/adr/012-strukturierte-ausgabe.md))
 - **Kein stiller Rückfall auf die Reihenfolge der Vektorsuche**, damit kein Eval-Lauf ein Reranking protokolliert, das nicht stattgefunden hat. ([ADR 005](docs/adr/005-kein-stiller-rueckfall.md))
 - **Vollständige Suche statt HNSW-Index**, weil der Index bei 5 Treffern für 3 von 36 Fragen zu wenige Seiten lieferte und bei 1.322 Seiten keine Zeit spart, sobald er zuverlässig sucht (gemessen auf `d60ddd5`). ([ADR 011](docs/adr/011-vollstaendige-suche-statt-hnsw.md))
 - **Kein RAG-Framework**, damit sich jeder Schritt der Pipeline einzeln steuern, testen und messen lässt. ([ADR 010](docs/adr/010-kein-rag-framework.md))
@@ -113,15 +146,15 @@ Die wichtigsten Entscheidungen in einem Satz. Kontext, verworfene Alternativen u
 
 ## Entwicklung mit Claude Code
 
-Ziel des Projekts ist, die Mechanik eines RAG-Systems durch Eigenbau zu verstehen. Ingestion, Retrieval, Reranking und Evaluation sind daher von Hand geschrieben; die zugrunde liegenden Entscheidungen sind in den Docstrings begründet.
+Ziel des Projekts ist, die Mechanik eines RAG-Systems durch Eigenbau zu verstehen. Ingestion, Retrieval, Reranking und Evaluation sind daher im Kern von Hand geschrieben; die zugrunde liegenden Entscheidungen sind in den Docstrings begründet.
 
-[Claude Code](https://claude.com/claude-code) kam als Pair Programmer für Reviews, Boilerplate, Testgerüste und Dokumentation zum Einsatz. Nicht für die Bewertung von Messergebnissen: Die Ground Truth des Eval-Sets ist manuell gegen die Quelldokumente verifiziert, Retrieval-Entscheidungen entstanden aus Handproben an Einzelfragen.
+[Claude Code](https://claude.com/claude-code) war dabei Mentor und Reviewer, nicht Autor: Bei Fragen zur Kernlogik erklärt es erst das Konzept, ordnet es in die Pipeline und die bestehenden ADRs ein und schlägt einen ersten Test vor, schreibt den Code aber nicht. Reviews, Boilerplate, Testgerüste und Dokumentation hat es übernommen, nicht aber die Bewertung von Messergebnissen: Die Ground Truth des Eval-Sets ist manuell gegen die Quelldokumente verifiziert, Retrieval-Entscheidungen entstanden aus Handproben an Einzelfragen.
 
 Diese Arbeitsteilung ist nicht nur beschrieben, sondern im Werkzeug verankert. Die Regeln stehen in `CLAUDE.md`, die Commit-Konventionen als aufrufbarer Befehl in `.claude/commands/`, und in `.claude/skills/` liegen die Konventionen für Auswertung, Tests und Prompt-Änderungen. Ein PreToolUse-Hook in `.claude/settings.json` lehnt Schreibzugriffe der Editierwerkzeuge auf `src/**` ab. Freigeschaltet wird er nur für einen einzelnen Auftrag: Beginnt der Prompt des Autors oder eine seiner Zeilen mit `delegiere:`, legt ein weiterer Hook eine Freigabedatei an, die ein Stop-Hook am Ende der Antwort wieder löscht. Schreibvorgänge über die Shell deckt der Hook nicht ab: Er sichert gegen Abdriften im Alltag, nicht gegen einen entschlossenen Umweg.
 
 ## Codequalität
 
-- **Über 120 automatisierte Tests** (`uv run pytest`), ohne echte API-Calls: Die OpenAI- und Anthropic-Clients werden durch Fakes ersetzt. Integrationstests gegen PostgreSQL laufen, wenn die Datenbank verfügbar ist.
+- **Über 130 automatisierte Tests** (`uv run pytest`), ohne echte API-Calls: Die OpenAI- und Anthropic-Clients werden durch Fakes ersetzt. Integrationstests gegen PostgreSQL laufen, wenn die Datenbank verfügbar ist.
 - **Ohne Keys und ohne Docker prüfbar:** `uv sync --dev && uv run pytest` läuft in etwa 16 Sekunden durch. Die Tests setzen eigene Platzhalter-Keys und lesen keine `.env`; ohne Datenbank werden nur die Integrationstests übersprungen.
 - **Statische Typprüfung** mit mypy, **Linting & Formatierung** mit Ruff, **Abhängigkeitsprüfung** mit deptry.
 - **Pre-commit-Hooks** für Ruff, mypy und deptry.
