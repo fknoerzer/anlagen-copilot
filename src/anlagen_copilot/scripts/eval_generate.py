@@ -128,6 +128,8 @@ class GenerationRun(BaseModel):
     per_document: int | None = None
     candidates: int | None = None
     reranker: str | None = None
+    # As in `RetrievalRun`: None without a reranker and on the runs before the setting.
+    rerank_temperature: float | None = None
     rerank_input_tokens: int | None = None
     rerank_output_tokens: int | None = None
     embedding_model: str
@@ -227,6 +229,7 @@ def run_generation(
                     per_document=per_document,
                     candidates=candidates,
                     reranker=reranker,
+                    rerank_temperature=settings.rerank_temperature,
                 )
                 sources = selection.pages
                 rerank_input += selection.rerank_input_tokens
@@ -284,6 +287,7 @@ def run_generation(
         per_document=per_document,
         candidates=candidates,
         reranker=reranker,
+        rerank_temperature=settings.rerank_temperature if reranker is not None else None,
         # None rather than 0 without a reranker, as in `run_retrieval()`: a
         # measured zero means something else than never measured.
         rerank_input_tokens=rerank_input if reranker is not None else None,

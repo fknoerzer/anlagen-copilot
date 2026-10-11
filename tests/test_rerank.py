@@ -33,11 +33,11 @@ def _pages(graded: list[GradedSource]) -> list[int]:
 
 def test_rerank_rejects_top_n_below_one() -> None:
     with pytest.raises(ValueError):
-        rerank(NO_CLIENT, "Frage?", _candidates(), model="m", top_n=0)
+        rerank(NO_CLIENT, "Frage?", _candidates(), model="m", top_n=0, temperature=0.0)
 
 
 def test_rerank_without_candidates_makes_no_call() -> None:
-    result = rerank(NO_CLIENT, "Frage?", [], model="m", top_n=5)
+    result = rerank(NO_CLIENT, "Frage?", [], model="m", top_n=5, temperature=0.0)
 
     assert result.graded == []
     assert (result.input_tokens, result.output_tokens) == (0, 0)
@@ -48,7 +48,14 @@ def test_rerank_records_the_model_that_answered_not_the_one_requested() -> None:
     """An alias may point to a newer snapshot; the run must name the one that graded."""
     client = FakeAnthropic(_message([{"id": 1, "grade": 3}]))
 
-    result = rerank(cast(Anthropic, client), "Frage?", _candidates(), model="requested", top_n=1)
+    result = rerank(
+        cast(Anthropic, client),
+        "Frage?",
+        _candidates(),
+        model="requested",
+        top_n=1,
+        temperature=0.0,
+    )
 
     assert result.model == "claude-test"
 
@@ -58,7 +65,9 @@ def test_rerank_orders_by_grade_then_by_vector_score() -> None:
         _message([{"id": 1, "grade": 1}, {"id": 2, "grade": 1}, {"id": 3, "grade": 3}])
     )
 
-    result = rerank(cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=3)
+    result = rerank(
+        cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=3, temperature=0.0
+    )
 
     assert _pages(result.graded) == [12, 10, 11]
     assert [g.grade for g in result.graded] == [3, 1, 1]
@@ -70,7 +79,9 @@ def test_rerank_keeps_only_top_n() -> None:
         _message([{"id": 1, "grade": 0}, {"id": 2, "grade": 3}, {"id": 3, "grade": 2}])
     )
 
-    result = rerank(cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=2)
+    result = rerank(
+        cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=2, temperature=0.0
+    )
 
     assert _pages(result.graded) == [11, 12]
 
@@ -81,7 +92,14 @@ def test_rerank_numbers_the_pages_from_one_and_requests_the_schema() -> None:
         _message([{"id": 1, "grade": 3}, {"id": 2, "grade": 0}, {"id": 3, "grade": 0}])
     )
 
-    rerank(cast(Anthropic, client), "Wo liegt das Distanzrohr?", _candidates(), model="m", top_n=3)
+    rerank(
+        cast(Anthropic, client),
+        "Wo liegt das Distanzrohr?",
+        _candidates(),
+        model="m",
+        top_n=3,
+        temperature=0.0,
+    )
 
     kwargs = client.messages.kwargs
     prompt = kwargs["messages"][0]["content"]  # type: ignore[index]
@@ -94,12 +112,23 @@ def test_rerank_numbers_the_pages_from_one_and_requests_the_schema() -> None:
     assert kwargs["max_tokens"] == 128 + 64 * 3
 
 
+def test_rerank_sends_the_temperature_it_is_given_in_the_request_body() -> None:
+    """0.3 rather than 0.0, so a call that silently fell back to a default would show."""
+    client = FakeAnthropic(_message([{"id": 1, "grade": 3}]))
+
+    rerank(cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=1, temperature=0.3)
+
+    assert client.messages.kwargs["extra_body"] == {"temperature": 0.3}
+
+
 def test_rerank_gives_an_ungraded_page_zero_and_warns(caplog: pytest.LogCaptureFixture) -> None:
     """Id 99 matches no page and is ignored."""
     client = FakeAnthropic(_message([{"id": 3, "grade": 2}, {"id": 99, "grade": 3}]))
 
     with caplog.at_level("WARNING"):
-        result = rerank(cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=3)
+        result = rerank(
+            cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=3, temperature=0.0
+        )
 
     assert _pages(result.graded) == [12, 10, 11]
     assert [g.grade for g in result.graded] == [2, 0, 0]
@@ -114,7 +143,9 @@ def test_rerank_rejects_an_answer_cut_off_by_max_tokens() -> None:
     client = FakeAnthropic(message)
 
     with pytest.raises(ValueError, match="max_tokens"):
-        rerank(cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=3)
+        rerank(
+            cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=3, temperature=0.0
+        )
 
 
 def test_rerank_rejects_a_response_without_text() -> None:
@@ -123,7 +154,9 @@ def test_rerank_rejects_a_response_without_text() -> None:
     client = FakeAnthropic(message)
 
     with pytest.raises(ValueError, match="no grades"):
-        rerank(cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=3)
+        rerank(
+            cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=3, temperature=0.0
+        )
 
 
 def test_rerank_rejects_a_grade_outside_zero_to_three() -> None:
@@ -132,4 +165,6 @@ def test_rerank_rejects_a_grade_outside_zero_to_three() -> None:
     )
 
     with pytest.raises(ValidationError, match="grade"):
-        rerank(cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=3)
+        rerank(
+            cast(Anthropic, client), "Frage?", _candidates(), model="m", top_n=3, temperature=0.0
+        )

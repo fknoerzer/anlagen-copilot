@@ -78,6 +78,9 @@ class RetrievalRun(BaseModel):
     per_document: int | None = None
     candidates: int | None = None
     reranker: str | None = None
+    # None without a reranker, and on every run before the setting existed: those
+    # graded at the API's default of 1.0, which no record states.
+    rerank_temperature: float | None = None
     rerank_input_tokens: int | None = None
     rerank_output_tokens: int | None = None
     embedding_model: str
@@ -160,6 +163,7 @@ def run_retrieval(
                 per_document=per_document,
                 candidates=candidates,
                 reranker=reranker,
+                rerank_temperature=settings.rerank_temperature,
             )
             sources = selection.pages
             rerank_input += selection.rerank_input_tokens
@@ -254,6 +258,7 @@ def run_retrieval(
         per_document=per_document,
         candidates=candidates,
         reranker=reranker,
+        rerank_temperature=settings.rerank_temperature if reranker is not None else None,
         rerank_input_tokens=input_tokens,
         rerank_output_tokens=output_tokens,
         embedding_model=settings.embedding_model,

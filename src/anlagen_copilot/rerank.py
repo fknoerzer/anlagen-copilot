@@ -130,7 +130,13 @@ def _order(candidates: list[Source], grades: list[Grade], *, top_n: int) -> list
 
 
 def rerank(
-    client: Anthropic, question: str, candidates: list[Source], *, model: str, top_n: int
+    client: Anthropic,
+    question: str,
+    candidates: list[Source],
+    *,
+    model: str,
+    top_n: int,
+    temperature: float,
 ) -> Reranked:
     """Grade every candidate against `question` in one call and return the best `top_n`.
 
@@ -144,6 +150,10 @@ def rerank(
     before the stop reason can be checked. An answer that does not fit the
     schema still ends the run: falling back to the vector order would record a
     measurement that looks like reranking and is not.
+
+    `temperature` comes in like `model` rather than from the settings: the run
+    that records it is the caller's, and a value read here could differ from the
+    one written into the record.
 
     Raises:
         ValueError: When `top_n` is below 1, when the model stopped for any
@@ -163,6 +173,10 @@ def rerank(
         system=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": _build_prompt(question, candidates)}],
         output_config={"format": _OUTPUT_FORMAT},
+        # Through `extra_body` because the 1.x SDK dropped `temperature` from its
+        # signature and raises a TypeError for it. The API still takes it from
+        # Haiku 4.5; newer models reject any value other than the default.
+        extra_body={"temperature": temperature},
     )
 
     if message.stop_reason != "end_turn":

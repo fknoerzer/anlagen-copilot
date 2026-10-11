@@ -46,7 +46,12 @@ class Settings(BaseSettings):
     azure_openai_api_key: SecretStr | None = None
 
     postgres_dsn: PostgresDsn
-    llm_temperature: float = 0.0  # more deterministic for RAG
+
+    # The reranker's alone: Claude Sonnet 5 takes no temperature other than the
+    # default, so the generation call sends none. 0.0 narrows the spread between
+    # runs without removing it (ADR 008); the runs before this setting graded at
+    # the API's default of 1.0.
+    rerank_temperature: float = Field(default=0.0, ge=0.0, le=1.0)
 
     ingest_strategy: Strategy = "naive"
 

@@ -233,7 +233,7 @@ def test_run_generation_records_the_answer_its_pages_and_its_score(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pages = [_source(9), _source(1)]
-    _patch_run_generation(
+    select, _ = _patch_run_generation(
         monkeypatch,
         [_question()],
         _selection(pages, reranked=True),
@@ -258,6 +258,8 @@ def test_run_generation_records_the_answer_its_pages_and_its_score(
     assert (result.input_tokens, result.output_tokens) == (6000, 200)
     assert (run.generator, run.reranker, run.candidates) == ("test-generator", "test-reranker", 20)
     assert (run.rerank_input_tokens, run.rerank_output_tokens) == (1200, 80)
+    # The value handed to the pipeline is the one recorded, the settings default.
+    assert select.call_args.kwargs["rerank_temperature"] == run.rerank_temperature == 0.0
 
 
 def test_run_generation_passes_the_question_text_not_the_eval_question(

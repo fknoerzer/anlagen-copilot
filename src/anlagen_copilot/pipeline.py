@@ -47,6 +47,7 @@ def select_pages(
     per_document: int | None,
     candidates: int | None,
     reranker: str | None,
+    rerank_temperature: float,
 ) -> PageSelection:
     """Search for the pages that answer `question` and, with a reranker, regrade them.
 
@@ -79,7 +80,14 @@ def select_pages(
         )
 
     rerank_start = time.perf_counter()
-    reranked = rerank(anthropic_client, question, found, model=reranker, top_n=k)
+    reranked = rerank(
+        anthropic_client,
+        question,
+        found,
+        model=reranker,
+        top_n=k,
+        temperature=rerank_temperature,
+    )
     rerank_seconds = time.perf_counter() - rerank_start
 
     return PageSelection(

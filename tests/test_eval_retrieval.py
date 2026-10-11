@@ -242,9 +242,10 @@ def test_run_retrieval_regrades_the_candidates_and_keeps_k(
     )
 
     assert retrieve.call_args.kwargs["k"] == 2
-    assert rerank.call_args.kwargs == {"model": "test-model", "top_n": 1}
+    # The temperature is the settings default, carried down to the call and into the record.
+    assert rerank.call_args.kwargs == {"model": "test-model", "top_n": 1, "temperature": 0.0}
     assert run.results[0].found == 1
-    assert (run.candidates, run.reranker) == (2, "test-model")
+    assert (run.candidates, run.reranker, run.rerank_temperature) == (2, "test-model", 0.0)
     # The model that graded, not the one requested: an alias may resolve to a newer one.
     assert run.results[0].reranked_by == "grading-model"
     # One question, so the totals are that question's — what this pins is that they
@@ -260,6 +261,17 @@ def test_run_retrieval_rejects_candidates_without_a_reranker(
 
     with pytest.raises(ValueError):
         run_retrieval(k=5, candidates=20, runs_path=tmp_path / "eval_runs.jsonl")
+
+
+def test_run_retrieval_records_no_temperature_without_a_reranker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A temperature on a plain run would claim a grading that never happened."""
+    _patch_run_retrieval(monkeypatch, [make_eval_question()], [[_make_source()]])
+
+    run = run_retrieval(strategy="naive", runs_path=tmp_path / "eval_runs.jsonl")
+
+    assert run.rerank_temperature is None
 
 
 def test_run_retrieval_records_the_eval_set_version(
