@@ -61,6 +61,7 @@ markers = ["integration: needs a running Postgres (docker compose up -d)"]
 
 [tool.mypy]
 strict = true
+files = ["src", "tests"]
 ignore_missing_imports = true
 
 [tool.deptry.per_rule_ignores]

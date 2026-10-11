@@ -20,7 +20,7 @@ jobs:
       - run: uv sync --dev
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: uv run mypy src
+      - run: uv run mypy
       - run: uv run deptry .
       - run: uv run pytest --cov=src
         env:

@@ -29,8 +29,8 @@ Logik und I/O — aber nicht umgesetzt. Der Umbau ist Arbeit des Autors.
   Marker ist in `pyproject.toml` registriert, `--strict-markers` ist aktiv: ein Tippfehler
   im Dekorator ist ein Fehler, auf der Kommandozeile aber nicht — `-m integraton`
   deselektiert stillschweigend alles.
-- **Typannotationen auch in Tests.** `uv run mypy src` deckt `tests/` nicht ab, aber die
-  Suite bleibt strikt annotiert. Für Tests sind `D100`, `D103` und `D104` per
+- **Typannotationen auch in Tests.** `uv run mypy` prüft über `files` in `pyproject.toml`
+  `src/` und `tests/` strikt, lokal wie in der CI. Für Tests sind `D100`, `D103` und `D104` per
   `per-file-ignores` abgeschaltet, Docstrings also nur, wo sie etwas erklären.
 - **Nach dem Schreiben:** `uv run pytest` und `uv run ruff check .`.
 
