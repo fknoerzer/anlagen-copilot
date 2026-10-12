@@ -30,8 +30,10 @@ bei Dokumenten ab 10 Seiten.
 
 - Chunk und PDF-Seite entsprechen sich 1:1. Ein Link mit `#page=N` ist damit
   eine vollständige Quellenangabe.
-- Keine Seite liegt über dem Embedding-Limit (0 von 1322), ein Guard dafür ist
-  nicht nötig.
+- Keine Seite liegt über dem Embedding-Limit (0 von 1322). Lehnt das Modell
+  trotzdem eine Seite ab, fängt `ingest_document()` das pro Seite ab: Die Seite
+  fehlt im Index, der Lauf meldet sie und endet mit Exit-Code 1
+  ([ADR 006](006-transaktion-pro-dokument.md)).
 - Die Seiten eines Handbuchs sehen sich ähnlich, eine Vektorsuche findet eher
   das Thema als die Seite mit der Antwort. Das Reranking
   ([ADR 004](004-reranker-ausgabe.md)) setzt hier an.

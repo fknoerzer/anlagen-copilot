@@ -3,7 +3,7 @@
 ## Kontext
 
 Die Pipeline hat wenige Schritte: extrahieren, einbetten, suchen, umsortieren,
-später generieren. Die Evaluation soll zeigen, was jeder dieser Schritte
+generieren. Die Evaluation soll zeigen, was jeder dieser Schritte
 bringt, und muss dafür jeden einzeln steuern und protokollieren können.
 `langchain` stand seit dem ersten Setup in den Abhängigkeiten, wurde aber nie
 importiert.
@@ -11,15 +11,16 @@ importiert.
 ## Entscheidung
 
 Die Pipeline ruft die Bibliotheken direkt auf: `openai` für Embeddings,
-`anthropic` für das Reranking, `psycopg` mit `pgvector` für die Datenbank,
+`anthropic` für Reranking und Generierung, `psycopg` mit `pgvector` für die Datenbank,
 Pydantic für Schemas und Validierung. `langchain` wurde entfernt (`68bc7d4`).
 
 ## Alternativen
 
 - **LangChain oder LlamaIndex.** Fertige Bausteine für Loader, Splitter,
   Retriever und Reranker. Mehrere Entscheidungen dieses Projekts müssten aber
-  gegen deren Abstraktion gebaut werden: das eigene Tool-Schema mit strikter
-  Validierung ([ADR 004](004-reranker-ausgabe.md)), der Fehler statt eines
+  gegen deren Abstraktion gebaut werden: die strukturierte Ausgabe mit eigenem
+  Schema und strikter Validierung ([ADR 004](004-reranker-ausgabe.md),
+  [ADR 012](012-strukturierte-ausgabe.md)), der Fehler statt eines
   Rückfalls ([ADR 005](005-kein-stiller-rueckfall.md)), die Token-Zählung je
   Lauf ([ADR 008](008-eval-laeufe-protokollieren.md)) und die Transaktion pro
   Dokument ([ADR 006](006-transaktion-pro-dokument.md)).

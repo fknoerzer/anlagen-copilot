@@ -63,7 +63,9 @@ leere `sources`. Ebenso alle Aussagen einer Ablehnung.
 - Die Regel „Aussagen einer Ablehnung zitieren nichts“ kollidiert mit „jede
   Sachaussage braucht einen Beleg“, wenn das Modell eine Ablehnung begründen
   will. In Probeläufen, die nicht protokolliert sind, fügte es zu q-004 trotz
-  Anweisung einen unbelegten Fakt hinzu. Wie oft das vorkommt, zeigen erst die
-  Läufe der Antwort-Evaluation.
+  Anweisung einen unbelegten Fakt hinzu. Die Antwort-Evaluation zählt das nicht:
+  Eine Ablehnung hat per Regel keine Quellen, ein unbelegter Fakt darin fällt
+  in keiner Zahl auf. **Offen:** Wie oft das vorkommt, lässt sich nur aus den
+  gespeicherten Aussagen der Läufe ablesen, bisher von Hand.
 - Die gespeicherten Aussagen samt Seiten erlauben eine spätere Faktenprüfung
   auf genau diesen Antworten, ohne neu zu generieren.

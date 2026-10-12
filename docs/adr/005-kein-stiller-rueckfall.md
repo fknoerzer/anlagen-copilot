@@ -3,7 +3,7 @@
 ## Kontext
 
 Der Reranker kann kein verwertbares Ergebnis liefern: Abbruch durch
-`max_tokens`, kein Tool-Call, Werte außerhalb des Schemas. Der naheliegende
+`max_tokens`, keine Textantwort, Werte außerhalb des Schemas. Der naheliegende
 Ausweg wäre, dann die Reihenfolge der Vektorsuche zu übernehmen.
 
 ## Entscheidung
