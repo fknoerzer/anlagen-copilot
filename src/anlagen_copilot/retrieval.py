@@ -113,12 +113,15 @@ def retrieve_per_document(
 ) -> list[Source]:
     """Return the `k` best chunks, at most `per_document` of them from one document.
 
-    What `retrieve_global()` cannot do: a multi-hop question needs a source from a
-    second manual, but the pages of one manual resemble each other and fill the
-    top k on their own. The cap reserves room for the other documents.
+    Meant for multi-hop questions, on the assumption that the pages of one
+    manual fill the top k and crowd out the source from a second one. Measured,
+    that does not hold here (ADR 014): a cap of 10 in the top 20 moves no source,
+    a cap of 5 drops true hits. The missing sources rank low because they read
+    unlike the question, and a cap only brings forward a manual's best page.
+    Kept for further measurements; `retrieve_global()` is the default path.
 
     Both searches compare every row (ADR 011); the window function only adds the
-    cap. `retrieve_global()` stays the path the recorded runs were measured on.
+    cap.
 
     `rank` exists only to filter on and never leaves the subquery — `Source`
     forbids unknown fields, and `class_row` hands it every selected column.
