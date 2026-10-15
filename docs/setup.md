@@ -37,6 +37,8 @@ uv run anlagen-copilot
 
 Die PDFs liegen aus urheberrechtlichen Gründen nicht im Repository. Sie werden beim ersten Lauf anhand der URLs in `data/raw/corpus.yaml` von den Herstellerseiten geladen. Das Manifest hält zu jedem Dokument Titel, Hersteller, Ausgabe, Bezugsdatum und Quelle fest, damit nachvollziehbar bleibt, auf welcher Dokumentversion die Messwerte beruhen.
 
+Die 6 Handbücher haben zusammen 1.810 Seiten. Davon werden 1.334 Seiten eingelesen, 1.322 mit extrahierbarem Text landen im Index: Aus dem 572-seitigen Siemens-Listenhandbuch wird nur Kapitel 4 „Störungen und Warnungen" (S. 453–548) eingelesen, weil die Fragen der Instandhaltung dort ansetzen. Die übrigen Kapitel (rund 310 Seiten Parameterlisten, 135 Seiten Funktionspläne und der Anhang) sind bewusst ausgelassen.
+
 ## 5. Retrieval evaluieren
 
 ```bash
