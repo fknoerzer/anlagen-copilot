@@ -21,7 +21,7 @@ je ein Lauf, weil die vollständige Suche deterministisch ist
 | global, `k=5` (`a2454fd`) | 22 / 36 | 2 / 10 | 7 / 10 | 6 / 8 | 7 / 8 |
 
 Die Annahme trifft nicht zu. Im Lauf mit `k=50` (`a2454fd`) liegen die
-fehlenden Belege auf Platz 33 bis 40 (q-007, q-015, q-028, q-035) oder gar nicht
+fehlenden Belege auf Platz 33 bis 40 (q-015, q-028, q-035) oder gar nicht
 unter den ersten 50 (q-008, q-021, q-032). Sie werden nicht von einem anderen
 Handbuch verdrängt, sie sind der Frage für das Embedding-Modell zu unähnlich.
 Eine Obergrenze kann nur die beste Seite eines Handbuchs nach vorne holen, und
@@ -44,7 +44,7 @@ Messungen, ist aber nicht Teil des Standardablaufs.
 ## Konsequenzen
 
 - Der Hebel für die fehlenden Belege liegt nicht in der Verteilung auf die
-  Handbücher. Infrage kommen mehr Kandidaten (vier Belege liegen auf Platz 33
+  Handbücher. Infrage kommen mehr Kandidaten (drei Belege liegen auf Platz 33
   bis 40), eine Zerlegung von Multi-Hop-Fragen in Teilfragen oder, für die drei
   Belege außerhalb der Top 50, eine bessere Extraktion. Keiner davon ist
   gemessen.
