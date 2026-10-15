@@ -21,6 +21,8 @@ Alle liefen am 2026-10-08 auf Commit `a2454fd` gegen Eval-Set v3, Strategie `nai
 
 Die Vektorsuche ist vollständig und damit reproduzierbar ([ADR 011](adr/011-vollstaendige-suche-statt-hnsw.md)), deshalb genügt ohne Reranking ein Lauf. Die Spalte „Unter den 20 Kandidaten“ stammt aus den protokollierten `retrieval_rank`-Werten der drei Reranking-Läufe und ist in allen dreien gleich. Die Streuung der Reranking-Spalte kommt von der Bewertung des Rerankers, die nicht deterministisch ist; zwischen den drei Läufen wechselt nur q-007 ihr Ergebnis. Die Generierungsläufe ranken ihre Kandidaten selbst neu, deshalb schwankt dort auch, welche Belege im Prompt liegen (25–28 von 36).
 
+Der Reranker bewertete in diesen Läufen mit der Temperatur 1.0, dem Standard der API. Seit `18d1e67` schickt der Code standardmäßig 0.0 mit (`rerank_temperature`), um die Streuung zu verringern. Läufe mit 0.0 stehen noch aus; bis dahin beschreiben die Spannen die alte Einstellung.
+
 Läufe auf v1 und v2 sind mit diesen Zahlen nicht vergleichbar: v3 korrigiert sechs Belegseiten und lässt bei q-007 gleichwertige Seiten in zwei Handbüchern gelten.
 
 ## Ein Beispiel: q-008
