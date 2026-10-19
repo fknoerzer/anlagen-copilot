@@ -88,8 +88,7 @@ questions:
     required_facts:
       - "Erhöhte Planschverluste können auftreten, wenn die Raumlage bewirkt, dass die 1. Getriebestufe vollständig in den Schmierstoff eintaucht."
       - "Erhöhte Planschverluste können auch auftreten, wenn eine hohe mittlere eintreibende Drehzahl zu hoher Umfangsgeschwindigkeit der Zahnräder der Eintriebsstufe führt."
-    supplementary_facts:
-      - "Die entsprechenden Raumlagen sind im Kapitel Raumlagenblätter mit einem * gekennzeichnet."
+    supplementary_facts: []
     notes: >-
       Baseline-Lookup, zwei Bedingungen in einer Aufzählung, testet ob beide
       vollständig erfasst werden statt nur der ersten. Kein W..: für einige
@@ -136,15 +135,10 @@ questions:
       - "Für VG 220 Standard-CLP ist u. a. das Produkt Klüberoil GEM 1-220 N freigegeben."
       - "Zusätzlich sind die thermischen Einsatzgrenzen der Radialwellendichtring-Werkstoffe zu beachten."
     notes: >-
-      Härtefall: Die Tabelle nennt zwei Bereiche, Umgebung (-15 bis +40) und
-      Ölsumpf je Produkt (-15 bis +80). Was welcher bedeutet, steht nur in der
-      Legende (S. 5). Testet, ob die Antwort beide auseinanderhält; ein Lauf
-      auf da919f3 nannte -15 bis +80 als Umgebungstemperatur. v3: Zwei Quellen
-      statt BA S. 70 (nur ein Verweis) und S. 7: die Tabelle
-      (sew-schmierstoffe S. 7 oder sew-getriebe-ba S. 212) und die Legende
-      (sew-schmierstoffe S. 5 oder sew-getriebe-ba S. 209); je Quelle reicht
-      eine der beiden Seiten. v4: "und wo steht das?" gestrichen, die Seiten
-      nennt jede Antwort ohnehin.
+      Härtefall: Die Tabelle nennt Umgebung (-15 bis +40) und Ölsumpf je
+      Produkt (-15 bis +80); was welcher Bereich ist, steht nur in der
+      Legende. v3: zwei Quellen, Tabelle und Legende, je mit gleichwertiger
+      Seite in der Betriebsanleitung. v4: "und wo steht das?" gestrichen.
 
   - id: q-008
     category: multi-hop
@@ -162,7 +156,7 @@ questions:
       - "Bei ungenügender Kühlung gegebenenfalls einen Fremdlüfter nachrüsten."
       - "Den Luftfilter kontrollieren und gegebenenfalls reinigen oder austauschen."
     supplementary_facts:
-      - "Mögliche Ursachen für F07011 laut Umrichter-Handbuch sind Motorüberlastung, zu hohe Motor-Umgebungstemperatur oder Drahtbruch/nicht angeschlossener Sensor."
+      - "Mögliche Ursachen für F07011 sind Motorüberlastung, zu hohe Motor-Umgebungstemperatur oder Drahtbruch/nicht angeschlossener Sensor."
       - "Bei ungenügender Kühlung die Kühlluftzufuhr sicherstellen bzw. die Kühlluftwege freimachen."
       - "Bei Überlastung eine Leistungsmessung durchführen, die Projektierung überprüfen und ggf. einen größeren Motor einsetzen oder die Belastung reduzieren."
       - "Bei zu hoher Umgebungstemperatur den zulässigen Temperaturbereich beachten und ggf. die Belastung reduzieren."
@@ -290,7 +284,7 @@ questions:
       - "Die Auslegungsbedingung lautet Ma · fB ≤ Ma max."
       - "Das mit dem Betriebsfaktor multiplizierte Lastmoment darf das zulässige Höchstmoment des Getriebes nicht überschreiten."
     supplementary_facts:
-      - "Der für die Anwendung ermittelte Betriebsfaktor muss kleiner oder gleich dem Betriebsfaktor des Getriebes laut Auswahltabellen sein."
+      - "Der für die Anwendung ermittelte Betriebsfaktor muss kleiner oder gleich dem Betriebsfaktor des gewählten Getriebes (SEW-fB) sein."
       - "Der Betriebsfaktor ist definiert als fB = Ma max / Ma."
     notes: >-
       Auslegungsformel direkt über dem Diagramm, reines Ablesen einer Formel.
@@ -369,7 +363,7 @@ questions:
     supplementary_facts:
       - "Bei CLP (PSS) haben nur SEW-EURODRIVE, Fuchs, Mobil und Sinopec einen Eintrag."
       - "Für die CLP (PSS)-Variante sind weniger Hersteller-Marken gelistet als für die Standard-CLP-Variante."
-      - "Bei Standard-CLP VG 220 sind alle acht Marken der Tabelle freigegeben."
+      - "Bei Standard-CLP VG 220 sind alle acht Marken freigegeben."
       - "Zusätzlich sind die thermischen Einsatzgrenzen der Radialwellendichtring-Werkstoffe zu beachten."
       - "Standard-CLP VG 220 ist für eine Umgebungstemperatur von -15 °C bis +40 °C freigegeben."
     notes: >-
