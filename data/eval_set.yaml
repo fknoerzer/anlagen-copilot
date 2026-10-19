@@ -1,10 +1,10 @@
 # Eval-Set: Fragen mit erwarteten Belegseiten (Retrieval) und Fakten (Antwort).
-version: v3
+version: v4
 questions:
   - id: q-001
     category: diagram
     question: >-
-      Zwischen welchen Bauteilen liegt das Distanzrohr in einem Stirnradgetriebe R..07 – R..167?
+      Zwischen welchen Bauteilen liegt das Distanzrohr auf der Abtriebswelle in einem Stirnradgetriebe R67?
     expected_sources:
       - any_of_pages:
           - document_id: sew-getriebe-ba
@@ -16,44 +16,53 @@ questions:
       Härtefall: räumliche Zuordnung aus einer Explosionszeichnung
       (Positionsnummern + Legende). Rad und Wälzlager kommen mehrfach vor,
       testet korrekte Disambiguierung über die Positionsnummer statt Raten.
+      Zwei Distanzrohre ([17] Abtriebswelle, [32] Ritzelwelle), daher nennt
+      die Frage die Abtriebswelle. Die Lage steht nur in der Zeichnung, nicht
+      im pypdf-Text.
 
   - id: q-002
     category: diagram
     question: >-
-      Wo steht auf dem Typenschild meines DRN-Getriebemotors die Wärmeklasse?
+      Wo steht auf dem Typenschild meines Getriebemotors R67 DRN90L4 die Wärmeklasse?
     expected_sources:
       - any_of_pages:
           - document_id: sew-getriebe-ba
             page: 22
     required_facts:
-      - "Die Wärmeklasse befindet sich an Position [7] auf dem Typenschild."
-      - "Position [7] ist links außen markiert."
-      - "Position [7] liegt direkt unterhalb der Zeile mit CosΦ (Leistungsfaktor, Position [6])."
-    supplementary_facts: []
+      - "Die Wärmeklasse ist auf dem Typenschild mit 'Th.Kl.' gekennzeichnet."
+      - "Die Wärmeklasse befindet sich mittig links außen auf dem Typenschild."
+      - "Die Wärmeklasse liegt direkt unterhalb der Zeile mit CosΦ (Leistungsfaktor)."
+    supplementary_facts:
+      - "Die Wärmeklasse befindet sich an Position [7] in der Abbildung des Handbuchs."
     notes: >-
       Härtefall: Positionsnummern nur über separate Legende erschließbar,
-      testet ob Bild-Layout und Legende sinnvoll verknüpft werden. Bewusst
-      nur nach der Position gefragt, nicht nach dem Wert (130(B)): das
-      Typenschild ist ein Illustrationsbeispiel, der Wert keine echte
-      Fachinformation.
+      testet ob Bild-Layout und Legende sinnvoll verknüpft werden. Bewusst nur
+      nach der Position gefragt, nicht nach dem Wert (130(B)): das Typenschild
+      ist ein Illustrationsbeispiel, der Wert keine echte Fachinformation. Die
+      Lage auf dem Schild fehlt im pypdf-Text: für naive ein erwarteter
+      Fehltreffer.
 
   - id: q-003
     category: diagram
     question: >-
-      Nutzen die Getriebebaureihen K.., S.. und W.. dieselbe Raumlagen-Darstellung, oder hat jede eine eigene?
+      Auf dem Typenschild meines Schneckengetriebes S47 steht M4. Wie muss das Getriebe eingebaut werden?
     expected_sources:
       - any_of_pages:
           - document_id: sew-getriebe-ba
             page: 28
     required_facts:
-      - "K.., S.. und W.. nutzen dieselbe Raumlagen-Darstellung (M1-M6)."
-      - "Das Handbuch bildet alle drei Baureihen gemeinsam in einer einzigen Grafik ab, nicht in getrennten Grafiken."
-    supplementary_facts: []
+      - "In Raumlage M4 steht der Motor senkrecht oben auf dem Getriebe."
+    supplementary_facts:
+      - "M4 auf dem Typenschild bezeichnet die Raumlage des Getriebes."
+      - "Die Abtriebswelle liegt in M4 waagerecht."
+      - "Motorachse und Abtriebswelle stehen rechtwinklig zueinander (Winkelgetriebe)."
+      - "Die Raumlagen-Darstellung gilt gemeinsam für Kegelrad-, Schnecken- und SPIROPLAN-Winkelgetriebe (K.., S.., W..)."
     notes: >-
-      Härtefall: eine Abbildung deckt drei Produktfamilien ab, testet, ob
-      Retrieval sie auch für S.. oder W.. findet, obwohl K.. zuerst genannt
-      wird.
-      v3: Belegseite 28 statt 29 (verzählt, die Raumlagen-Grafik steht auf S. 28).
+      Härtefall: Die Grafik nennt K.., S.. und W.. gemeinsam, die Frage nur
+      S... Die Lage des Motors ist Bildinhalt, nicht im pypdf-Text: für naive
+      ein erwarteter Fehltreffer, braucht Bildverständnis. v3: Belegseite 28
+      statt 29 (verzählt). v4: Ersetzt eine Ja/Nein-Frage zur Darstellung im
+      Handbuch (alte Antworten siehe TODO).
 
   - id: q-004
     category: unanswerable
@@ -63,30 +72,33 @@ questions:
     required_facts: []
     supplementary_facts: []
     notes: >-
-      Frage ergibt fachlich keinen Sinn (Umrichter hat keinen Akku), prüft,
-      ob das System ablehnt/richtigstellt statt zu halluzinieren.
+      Frage ergibt fachlich keinen Sinn (Umrichter hat keinen Akku), prüft, ob
+      das System ablehnt statt zu halluzinieren. Erwartet ist die reine
+      Ablehnung ohne Richtigstellung, eine Ablehnung trägt keine Belege (ADR
+      013).
 
   - id: q-005
     category: lookup
     question: >-
-      Unter welchen Bedingungen können erhöhte Planschverluste auftreten?
+      Wann kann es bei meinem Kegelradgetriebe K67 zu erhöhten Planschverlusten kommen?
     expected_sources:
       - any_of_pages:
           - document_id: sew-getriebe-ba
             page: 29
     required_facts:
       - "Erhöhte Planschverluste können auftreten, wenn die Raumlage bewirkt, dass die 1. Getriebestufe vollständig in den Schmierstoff eintaucht."
-      - "Die entsprechenden Raumlagen sind im Kapitel Raumlagenblätter mit einem * gekennzeichnet."
       - "Erhöhte Planschverluste können auch auftreten, wenn eine hohe mittlere eintreibende Drehzahl zu hoher Umfangsgeschwindigkeit der Zahnräder der Eintriebsstufe führt."
-    supplementary_facts: []
+    supplementary_facts:
+      - "Die entsprechenden Raumlagen sind im Kapitel Raumlagenblätter mit einem * gekennzeichnet."
     notes: >-
       Baseline-Lookup, zwei Bedingungen in einer Aufzählung, testet ob beide
-      vollständig erfasst werden statt nur der ersten.
+      vollständig erfasst werden statt nur der ersten. Kein W..: für einige
+      W-Typen gilt eine Universalraumlage.
 
   - id: q-006
     category: table
     question: >-
-      Wie fest ziehe ich eine Verschluss-Schraube M12 × 1,5 am Getriebe an, etwa die Ölablassschraube?
+      Wie fest ziehe ich eine Verschluss-Schraube M12 × 1,5 an meinem Flachgetriebe F57 an, etwa die Ölablassschraube?
     expected_sources:
       - any_of_pages:
           - document_id: sew-getriebe-ba
@@ -96,13 +108,14 @@ questions:
     supplementary_facts: []
     notes: >-
       Härtefall: direkt danach folgt eine optisch identische Tabelle mit
-      anderen Gewinden (M16-M42) und anderen Werten, testet ob Retrieval
-      beide Tabellen sauber unterscheidet statt sie zu vermischen.
+      anderen Gewinden (M16-M42) und anderen Werten, testet ob Retrieval beide
+      Tabellen sauber unterscheidet statt sie zu vermischen. Die Tabellen
+      darüber nennen auch M12, für die Flanschbefestigung ohne Drehmoment.
 
   - id: q-007
     category: multi-hop
     question: >-
-      In welchem Umgebungstemperaturbereich darf mein Stirnradgetriebe R.. mit Standard-CLP-Öl VG 220 laufen, und wo steht das?
+      In welchem Umgebungstemperaturbereich darf mein Stirnradgetriebe R47 mit Standard-CLP-Öl VG 220 laufen?
     expected_sources:
       - any_of_pages:
           - document_id: sew-schmierstoffe
@@ -117,24 +130,26 @@ questions:
     required_facts:
       - "Standard-CLP-Öl VG 220 deckt für Stirnradgetriebe R.. den Umgebungstemperaturbereich von -15°C bis +40°C ab."
       - "-15 °C bis +80 °C über den Produkten ist die zulässige Ölsumpftemperatur, nicht die Umgebungstemperatur."
+    supplementary_facts:
       - "Für VG 220 Standard-CLP ist u. a. das Produkt SEW GearOil Base 220 freigegeben."
       - "Für VG 220 Standard-CLP ist u. a. das Produkt Mobilgear 600 XP 220 freigegeben."
       - "Für VG 220 Standard-CLP ist u. a. das Produkt Klüberoil GEM 1-220 N freigegeben."
-    supplementary_facts: []
+      - "Zusätzlich sind die thermischen Einsatzgrenzen der Radialwellendichtring-Werkstoffe zu beachten."
     notes: >-
-      Härtefall: Die Tabelle nennt zwei Bereiche, Umgebung (-15 bis +40)
-      und Ölsumpf je Produkt (-15 bis +80). Was welcher bedeutet, steht nur
-      in der Legende (S. 5). Testet, ob die Antwort beide auseinanderhält;
-      ein Lauf auf da919f3 nannte -15 bis +80 als Umgebungstemperatur.
-      v3: Zwei Quellen statt BA S. 70 (nur ein Verweis) und S. 7: die
-      Tabelle (sew-schmierstoffe S. 7 oder sew-getriebe-ba S. 212) und die
-      Legende (sew-schmierstoffe S. 5 oder sew-getriebe-ba S. 209); je Quelle
-      reicht eine der beiden Seiten.
+      Härtefall: Die Tabelle nennt zwei Bereiche, Umgebung (-15 bis +40) und
+      Ölsumpf je Produkt (-15 bis +80). Was welcher bedeutet, steht nur in der
+      Legende (S. 5). Testet, ob die Antwort beide auseinanderhält; ein Lauf
+      auf da919f3 nannte -15 bis +80 als Umgebungstemperatur. v3: Zwei Quellen
+      statt BA S. 70 (nur ein Verweis) und S. 7: die Tabelle
+      (sew-schmierstoffe S. 7 oder sew-getriebe-ba S. 212) und die Legende
+      (sew-schmierstoffe S. 5 oder sew-getriebe-ba S. 209); je Quelle reicht
+      eine der beiden Seiten. v4: "und wo steht das?" gestrichen, die Seiten
+      nennt jede Antwort ohnehin.
 
   - id: q-008
     category: multi-hop
     question: >-
-      Umrichter zeigt F07011 Motor Übertemperatur. Wie reagiert der Umrichter, und was prüfe ich am Motor?
+      Mein Umrichter G120C zeigt F07011 Motor Übertemperatur. Wie reagiert der Umrichter, und was kann ich an meinem Motor DRN90L4 tun, damit er nicht wieder zu heiß wird?
     expected_sources:
       - any_of_pages:
           - document_id: siemens-g120c-liste
@@ -143,33 +158,44 @@ questions:
           - document_id: sew-motoren-drn
             page: 261
     required_facts:
-      - "F07011 'Motor Übertemperatur' löst die Reaktion AUS2 aus."
+      - "F07011 'Motor Übertemperatur' löst am Umrichter die Reaktion AUS2 aus."
+      - "Bei ungenügender Kühlung gegebenenfalls einen Fremdlüfter nachrüsten."
+      - "Den Luftfilter kontrollieren und gegebenenfalls reinigen oder austauschen."
+    supplementary_facts:
       - "Mögliche Ursachen für F07011 laut Umrichter-Handbuch sind Motorüberlastung, zu hohe Motor-Umgebungstemperatur oder Drahtbruch/nicht angeschlossener Sensor."
-      - "sew-motoren-drn nennt für 'Motor erwärmt sich zu stark' als Prüfschritt die Kühlluftzufuhr/-wege."
-      - "sew-motoren-drn nennt als weiteren Prüfschritt die Kontrolle des Luftfilters."
-      - "sew-motoren-drn nennt außerdem, ggf. einen Fremdlüfter nachzurüsten."
-      - "sew-motoren-drn nennt als weiteren Prüfschritt die Einhaltung des zulässigen Umgebungstemperaturbereichs."
-      - "sew-motoren-drn (Kapitel 9.4) verweist bei Störungen im Frequenzumrichterbetrieb explizit zurück auf die Umrichter-Betriebsanleitung."
-    supplementary_facts: []
+      - "Bei ungenügender Kühlung die Kühlluftzufuhr sicherstellen bzw. die Kühlluftwege freimachen."
+      - "Bei Überlastung eine Leistungsmessung durchführen, die Projektierung überprüfen und ggf. einen größeren Motor einsetzen oder die Belastung reduzieren."
+      - "Bei zu hoher Umgebungstemperatur den zulässigen Temperaturbereich beachten und ggf. die Belastung reduzieren."
     notes: >-
-      Entspricht dem zweiten cross_references-Muster in corpus.yaml
-      (Störcode am Umrichter und Auswirkung auf den Motor). Härtefall: beide
-      Dokumente verweisen wechselseitig aufeinander, testet ob Retrieval
-      beide Richtungen findet, nicht nur eine.
+      Entspricht dem zweiten cross_references-Muster in corpus.yaml (Störcode
+      am Umrichter und Auswirkung auf den Motor). Härtefall: beide Dokumente
+      verweisen wechselseitig aufeinander, testet ob Retrieval beide
+      Richtungen findet, nicht nur eine. v4: Fremdlüfter und Luftfilter stehen
+      nur im SEW-Handbuch und sind deshalb erforderlich; den Rest nennt auch
+      S. 501.
 
   - id: q-009
     category: lookup
     question: >-
-      Wie oft muss ich beim DRN-Motor die Wälzlager prüfen, Wellendichtringe wechseln und Kühlluftwege reinigen?
+      Wie oft muss ich meinen Motor DRN100LS4 warten, und was ist dabei zu tun?
     expected_sources:
       - any_of_pages:
           - document_id: sew-motoren-drn
             page: 131
     required_facts:
-      - "Alle 10000 Betriebsstunden."
-    supplementary_facts: []
+      - "Der Motor ist alle 10000 Betriebsstunden zu inspizieren."
+      - "Dabei die Wälzlager prüfen und gegebenenfalls wechseln."
+      - "Dabei die Wellendichtringe wechseln."
+      - "Dabei die Kühlluftwege reinigen."
+    supplementary_facts:
+      - "Das Intervall hängt von äußeren Einflüssen ab und kann deutlich kürzer sein, z. B. bei hohem Staubgehalt in der Umgebung."
+      - "Für den Antrieb gilt ein unterschiedliches Intervall: Korrosionsschutzanstrich ausbessern, Luftfilter prüfen und gegebenenfalls reinigen, Kondenswasserbohrung und verschlossene Bohrungen reinigen."
+      - "Das Anschlusskabel wird im selben Intervall wie der Motor auf Beschädigungen geprüft, die Kabelverschraubungen werden gegebenenfalls nachgezogen."
     notes: >-
-      Einfacher Fließtext-Lookup aus einer Wartungsintervall-Tabelle (Baseline).
+      Einfacher Lookup aus einer Wartungsintervall-Tabelle (Baseline).
+      Baugröße unter 225 gewählt: für DRN225 – 315 gelten verkürzte
+      Nachschmierfristen (Fußnote 2, S. 132). Ohne Bremse, die Bremsenzeilen
+      gelten nicht.
 
   - id: q-010
     category: lookup
@@ -180,34 +206,41 @@ questions:
           - document_id: siemens-g120c-kurz
             page: 270
     required_facts:
-      - "STO eignet sich zur Realisierung eines Not-Halts."
       - "STO eignet sich nicht zur Realisierung eines Not-Aus."
       - "STO schaltet keine elektrische Spannung sicher aus."
-    supplementary_facts: []
+    supplementary_facts:
+      - "STO eignet sich zur Realisierung eines Not-Halts."
     notes: >-
       Kontraintuitiver Fakt: STO ≠ Not-Aus, obwohl STO den Antrieb sicher
       stoppt. Testet, ob das System die Nuance wiedergibt statt pauschal
-      zuzustimmen.
-      v3: Belegseite 270 statt 264 (gedruckte statt PDF-Seitenzahl).
+      zuzustimmen. v3: Belegseite 270 statt 264 (gedruckte statt
+      PDF-Seitenzahl). v4: Die zweispaltige Tabelle (Not-Aus/Not-Halt)
+      verliert bei pypdf die Spalten, die Läufe auf a2454fd vertauschen sie
+      (siehe TODO).
 
   - id: q-011
     category: lookup
     question: >-
-      Das Getriebe steht länger im Lager – ab wann brauche ich die Ausführung Langzeitlagerung?
+      Wir bestellen ein Schneckengetriebe S67, das vor der Montage etwa ein Jahr im Lager liegen wird. Brauche ich dafür eine besondere Ausführung?
     expected_sources:
       - any_of_pages:
           - document_id: sew-katalog-projektierung
             page: 19
     required_facts:
-      - "Bei einer Lagerzeit von mehr als 9 Monaten."
-    supplementary_facts: []
+      - "Ja, das Getriebe sollte in der Ausführung 'Langzeitlagerung' bestellt werden."
+      - "SEW-EURODRIVE empfiehlt die Ausführung 'Langzeitlagerung' bei einer Lagerzeit von mehr als 9 Monaten."
+    supplementary_facts:
+      - "Dem Schmierstoff wird ein VCI-Korrosionsschutzmittel beigemischt, das nur im Temperaturbereich -25 °C bis +50 °C wirksam ist."
+      - "Das Getriebe muss bis zur Inbetriebnahme dicht verschlossen bleiben, damit sich das Korrosionsschutzmittel nicht verflüchtigt."
+      - "Vor der Inbetriebnahme muss der Ölstand kontrolliert werden."
     notes: >-
-      Einfacher Fließtext-Lookup.
+      Einfacher Fließtext-Lookup. v4: Fragt jetzt vor der Bestellung, ohne das
+      Stichwort zu nennen.
 
   - id: q-012
     category: diagram
     question: >-
-      Welcher Stoßgrad (I, II, III) ergibt bei gleicher Schalthäufigkeit den höchsten Betriebsfaktor fB, und warum?
+      Ich lege ein Stirnradgetriebe R77 aus: Welcher Stoßgrad (I, II, III) ergibt bei gleicher Schalthäufigkeit den höchsten Betriebsfaktor fB, und warum?
     expected_sources:
       - any_of_pages:
           - document_id: sew-katalog-projektierung
@@ -215,35 +248,40 @@ questions:
     required_facts:
       - "Stoßgrad III hat den höchsten Betriebsfaktor fB."
       - "Stoßgrad III bedeutet stark ungleichförmige Belastung (Massenbeschleunigungsfaktor ≤ 10)."
-      - "Begründung: stoßhaftere Belastung erfordert eine größere Sicherheitsreserve."
-    supplementary_facts: []
+      - "Begründung: Der Betriebsfaktor berücksichtigt die Auswirkung der Arbeitsmaschine auf das Getriebe; je ungleichförmiger die Belastung, desto höher der Betriebsfaktor."
+    supplementary_facts:
+      - "Stoßgrad I bedeutet gleichförmige Belastung (Massenbeschleunigungsfaktor ≤ 0,2)."
+      - "Stoßgrad II bedeutet ungleichförmige Belastung (Massenbeschleunigungsfaktor ≤ 3)."
     notes: >-
       Härtefall: Kurvenvergleich in einem Kennliniendiagramm mit drei
       überlagerten Kurven, testet ob das System die relative Lage der Kurven
-      zueinander korrekt erfasst, nicht nur einzelne Achsenwerte.
+      zueinander korrekt erfasst, nicht nur einzelne Achsenwerte. Kein
+      Schneckengetriebe: dafür nennt S. 52 zusätzliche Betriebsfaktoren.
 
   - id: q-013
     category: diagram
     question: >-
-      Wovon hängt der Betriebsfaktor fB außer vom Stoßgrad noch ab?
+      Ich lege ein Kegelradgetriebe K87 aus: Wovon hängt der Betriebsfaktor fB außer vom Stoßgrad noch ab?
     expected_sources:
       - any_of_pages:
           - document_id: sew-katalog-projektierung
             page: 50
     required_facts:
-      - "Der Betriebsfaktor fB hängt von der Schalthäufigkeit Z [1/h] ab (X-Achse)."
-      - "Der Betriebsfaktor fB hängt zusätzlich von der täglichen Betriebszeit in Stunden/Tag ab."
-      - "Dafür hat das Diagramm drei parallele Y-Achsen-Skalen für 24, 16 und 8 Stunden/Tag."
-    supplementary_facts: []
+      - "Der Betriebsfaktor fB hängt von der Schalthäufigkeit Z ab."
+      - "Der Betriebsfaktor fB hängt von der täglichen Betriebszeit ab."
+    supplementary_facts:
+      - "Die tägliche Betriebszeit wird in den Stufen 8, 16 und 24 Stunden/Tag berücksichtigt."
+      - "Zur Schalthäufigkeit zählen alle Anlauf- und Bremsvorgänge sowie Umschaltungen zwischen niedriger und hoher Drehzahl."
     notes: >-
       Härtefall: Diagramm hat drei parallele Skalen (24/16/8 Std.) statt nur
       einer, testet ob das System erkennt, dass fB von zwei unabhängigen
-      Größen abhängt.
+      Größen abhängt. Kein Schneckengetriebe: dafür kommen fB1 und fB2 hinzu
+      (S. 52).
 
   - id: q-014
     category: diagram
     question: >-
-      Nach welcher Formel prüfe ich, ob das Getriebe für meine Last stark genug ist?
+      Nach welcher Formel prüfe ich, ob mein Flachgetriebe F87 für meine Last stark genug ist?
     expected_sources:
       - any_of_pages:
           - document_id: sew-katalog-projektierung
@@ -251,38 +289,37 @@ questions:
     required_facts:
       - "Die Auslegungsbedingung lautet Ma · fB ≤ Ma max."
       - "Das mit dem Betriebsfaktor multiplizierte Lastmoment darf das zulässige Höchstmoment des Getriebes nicht überschreiten."
-    supplementary_facts: []
+    supplementary_facts:
+      - "Der für die Anwendung ermittelte Betriebsfaktor muss kleiner oder gleich dem Betriebsfaktor des Getriebes laut Auswahltabellen sein."
+      - "Der Betriebsfaktor ist definiert als fB = Ma max / Ma."
     notes: >-
       Auslegungsformel direkt über dem Diagramm, reines Ablesen einer Formel.
       Ob sie allein zur vollständigen Auslegung reicht, ist Gegenstand von
-      q-015.
+      q-015. Kein Schneckengetriebe (zusätzliche Betriebsfaktoren, S. 52).
 
   - id: q-015
-    category: multi-hop
+    category: lookup
     question: >-
-      Reicht Ma · fB ≤ Ma max, um ein Getriebe auszulegen, oder muss ich noch etwas prüfen?
+      Reicht Ma · fB ≤ Ma max, um mein Stirnradgetriebe R107 auszulegen, oder muss ich noch etwas prüfen?
     expected_sources:
-      - any_of_pages:
-          - document_id: sew-katalog-projektierung
-            page: 50
       - any_of_pages:
           - document_id: sew-getriebe-ba
             page: 29
     required_facts:
       - "Die Prüfung Ma · fB ≤ Ma max allein reicht nicht aus."
-      - "sew-katalog-projektierung prüft damit nur die mechanische Momenten-Auslegung."
-      - "sew-getriebe-ba verlangt zusätzlich eine unabhängige thermische Prüfung der Wärmegrenzleistung."
+      - "Zusätzlich ist eine thermische Prüfung der Wärmegrenzleistung nötig."
       - "Diese thermische Prüfung wird nötig, wenn eine Raumlage mit vollständig eingetauchter 1. Getriebestufe vorliegt."
       - "Die thermische Prüfung wird auch nötig, wenn eine hohe mittlere eintreibende Drehzahl vorliegt."
+    supplementary_facts:
+      - "Ma · fB ≤ Ma max prüft nur die mechanische Momenten-Auslegung."
       - "Für die thermische Prüfung werden weitere Daten benötigt: Getriebeübersetzung, Drehzahl, Motormoment, Umgebungstemperatur, Aufstellungsort und Einbausituation."
       - "Gegebenenfalls ist dafür Rücksprache mit SEW-EURODRIVE nötig."
-    supplementary_facts: []
     notes: >-
-      Entspricht dem dritten cross_references-Muster in corpus.yaml
-      (Auslegung vs. zulässige Betriebsbedingungen). Härtefall: mechanische
-      Auslegung und thermische Zulässigkeitsprüfung sind zwei unabhängige
-      Bedingungen, die beide erfüllt sein müssen, testet ob nur eines der
-      Dokumente konsultiert wird.
+      Härtefall: Mechanische Auslegung und thermische Prüfung sind zwei
+      unabhängige Bedingungen. Kein Schneckengetriebe (zusätzliche
+      Betriebsfaktoren, Katalog S. 52). v4: lookup statt multi-hop, alle
+      erforderlichen Fakten stehen auf S. 29; die Formel nennt die Frage
+      selbst.
 
   - id: q-016
     category: table
@@ -294,8 +331,9 @@ questions:
             page: 463
     required_facts:
       - "F07011 liegt im Nummernbereich 7000-7999."
-      - "Der Bereich 7000-7999 ist laut Tabelle 4-5 für 'Antrieb' reserviert."
-    supplementary_facts: []
+      - "Der Bereich 7000-7999 steht für 'Antrieb'."
+    supplementary_facts:
+      - "Die Nummernbereiche gelten für die ganze Antriebsfamilie SINAMICS; welche Störungen der G120C tatsächlich hat, steht in der Liste der Störungen und Warnungen."
     notes: >-
       Härtefall: Antwort erfordert Verknüpfung eines konkreten Störcodes mit
       einer separaten Klassifikationstabelle im selben Dokument, aber weit
@@ -304,14 +342,16 @@ questions:
   - id: q-017
     category: table
     question: >-
-      Welches Shell-Öl darf ich in ein Stirnradgetriebe R.. mit Standard-CLP VG 150 füllen?
+      Welches Shell-Öl darf ich in ein Stirnradgetriebe R37 mit Standard-CLP VG 150 füllen?
     expected_sources:
       - any_of_pages:
           - document_id: sew-schmierstoffe
             page: 7
     required_facts:
       - "Shell Omala S2 GX Plus 150."
-    supplementary_facts: []
+    supplementary_facts:
+      - "Zusätzlich sind die thermischen Einsatzgrenzen der Radialwellendichtring-Werkstoffe zu beachten."
+      - "Standard-CLP VG 150 ist für eine Umgebungstemperatur von -20 °C bis +30 °C freigegeben."
     notes: >-
       Baseline-Lookup in einer breiten Matrix-Tabelle mit acht
       Hersteller-Spalten.
@@ -319,34 +359,36 @@ questions:
   - id: q-018
     category: table
     question: >-
-      Welche Ölmarken sind für ein Stirnradgetriebe R.. bei Standard-CLP VG 220 freigegeben, aber nicht bei CLP (PSS)?
+      Welche Ölmarken sind für ein Stirnradgetriebe R87 bei Standard-CLP VG 220 freigegeben, aber nicht bei CLP (PSS)?
     expected_sources:
       - any_of_pages:
           - document_id: sew-schmierstoffe
             page: 7
     required_facts:
-      - "Für die CLP (PSS)-Variante sind weniger Hersteller-Marken gelistet als für die Standard-CLP-Variante."
-      - "Bei CLP (PSS) haben nur SEW-EURODRIVE, Fuchs, Mobil und Sinopec einen Eintrag."
       - "Castrol, Klüber Lubrication, Shell und TotalEnergies fehlen bei CLP (PSS) komplett."
-      - "Diese vier Marken sind für dieselben Getriebetypen (R.., RES, K..7, KES, HK.., F.7) bei Standard-CLP gelistet."
-    supplementary_facts: []
+    supplementary_facts:
+      - "Bei CLP (PSS) haben nur SEW-EURODRIVE, Fuchs, Mobil und Sinopec einen Eintrag."
+      - "Für die CLP (PSS)-Variante sind weniger Hersteller-Marken gelistet als für die Standard-CLP-Variante."
+      - "Bei Standard-CLP VG 220 sind alle acht Marken der Tabelle freigegeben."
+      - "Zusätzlich sind die thermischen Einsatzgrenzen der Radialwellendichtring-Werkstoffe zu beachten."
+      - "Standard-CLP VG 220 ist für eine Umgebungstemperatur von -15 °C bis +40 °C freigegeben."
     notes: >-
       Härtefall: zwei optisch fast identische Tabellenblöcke direkt
-      untereinander, aber mit unterschiedlich vielen befüllten Zellen,
-      testet ob Retrieval sie sauber trennt statt zu vermischen.
+      untereinander, aber mit unterschiedlich vielen befüllten Zellen, testet
+      ob Retrieval sie sauber trennt statt zu vermischen.
 
   - id: q-019
     category: diagram
     question: >-
-      Wie viele Wellendichtringe hat der Motor DR..56, und an welchem Lagerschild sitzt welcher?
+      Wie viele Wellendichtringe hat der Motor DR2S56, und an welchem Lagerschild sitzt welcher?
     expected_sources:
       - any_of_pages:
           - document_id: sew-motoren-drn
             page: 16
     required_facts:
-      - "Der Motor DR..56 hat zwei Wellendichtringe."
-      - "Position [106] sitzt direkt neben dem Flanschlagerschild [7] (Antriebsseite)."
-      - "Position [30] sitzt neben dem B-Lagerschild [42] (Nicht-Antriebsseite)."
+      - "Der Motor hat zwei Wellendichtringe."
+      - "Ein Wellendichtring sitzt am Flanschlagerschild auf der Antriebsseite."
+      - "Der andere Wellendichtring sitzt am B-Lagerschild auf der Nicht-Antriebsseite."
     supplementary_facts: []
     notes: >-
       Härtefall analog zu q-001: "Wellendichtring" kommt zweimal in der
@@ -354,52 +396,57 @@ questions:
       Lagerschild korrekt disambiguiert.
 
   - id: q-020
-    category: diagram
+    category: lookup
     question: >-
-      Winkel-Aufsteckgetriebe mit Schrumpfscheibe: Ist A oder B die Abtriebsseite, und wo sitzt die Schrumpfscheibe?
+      Ich bestelle ein Kegelradgetriebe KH77 mit Schrumpfscheibe. Was muss ich bei der Bestellung zusätzlich angeben?
     expected_sources:
       - any_of_pages:
           - document_id: sew-katalog-projektierung
             page: 159
     required_facts:
-      - "Die A-Seite ist die abtreibende Seite."
-      - "Die Schrumpfscheibe befindet sich gegenüber der abtreibenden Seite, also auf der B-Seite."
-    supplementary_facts: []
+      - "Bei der Bestellung muss angegeben werden, welche Seite (A oder B) die abtreibende Seite ist."
+    supplementary_facts:
+      - "Die Schrumpfscheibe sitzt auf der Seite gegenüber der abtreibenden Seite."
     notes: >-
-      Härtefall: A/B-Zuordnung ist nur über die Grafik selbst ersichtlich,
-      der Fließtext nennt "A-Seite" ohne die Grafik zu wiederholen, testet ob
-      Bild-Beschriftung und Fließtext-Referenz korrekt verknüpft werden.
+      v4: Fragt jetzt nach der Bestellangabe statt nach A oder B im Bild,
+      das kennt an der Maschine niemand. Dadurch lookup statt diagram.
 
   - id: q-021
     category: table
     question: >-
-      R-Getriebe Größe 97–107 in M2 oder M4: Ab welcher Eintriebsdrehzahl muss ich wegen Planschverlusten bei SEW nachfragen?
+      Mein Stirnradgetriebe R97 ist in Raumlage M4 eingebaut und soll mit 3000 1/min angetrieben werden. Muss ich etwas beachten?
     expected_sources:
       - any_of_pages:
           - document_id: sew-katalog-projektierung
             page: 163
     required_facts:
-      - "Ab einer Eintriebsdrehzahl von > 2500 1/min muss bei R-Getrieben der Größe 97-107 in M2/M4 Rücksprache gehalten werden."
-      - "Bei Getriebegröße > 107 sinkt diese Schwelle bereits auf > 1500 1/min."
+      - "Ja, bei R-Getrieben der Größe 97-107 in M2/M4 ist ab einer Eintriebsdrehzahl von mehr als 2500 1/min Rücksprache mit SEW-EURODRIVE zu halten."
+      - "Grund sind erhöhte Planschverluste."
     supplementary_facts: []
     notes: >-
       Tabelle mit vier Spalten und unterschiedlichen Schwellenwerten je
       Getriebeart und Größenbereich, testet präzise Zeilenzuordnung statt
       eines pauschalen Werts. Inhaltlich verwandt mit q-005, aber
-      eigenständige Tabelle mit anderen Werten.
+      eigenständige Tabelle mit anderen Werten. v4: Die Frage nennt
+      Planschverluste und Rücksprache nicht mehr selbst.
 
   - id: q-022
-    category: unanswerable
+    category: lookup
     question: >-
-      In welcher Raumlage (M1–M6) soll ich den G120C montieren?
-    expected_sources: []
-    required_facts: []
-    supplementary_facts: []
+      In welcher Lage muss ich den G120C montieren?
+    expected_sources:
+      - any_of_pages:
+          - document_id: siemens-g120c-kurz
+            page: 45
+    required_facts:
+      - "Der Umrichter wird in einem Schaltschrank eingebaut."
+      - "Der Umrichter darf nicht waagrecht eingebaut werden."
+    supplementary_facts:
+      - "Die Lüftungsöffnungen dürfen nicht verdeckt und der Kühlluftstrom nicht behindert werden."
     notes: >-
-      Falsche Prämisse: "Raumlage" ist ein Einbaulage-Konzept für
-      SEW-Getriebe, nicht für Frequenzumrichter. Anders als q-004 existiert
-      das Konzept im Korpus, nur im falschen Dokument, testet ob das System
-      die Dokumentgrenze erkennt statt eine Getriebe-Raumlage zu liefern.
+      v4: Beantwortbar statt unbeantwortbar. Die alte Fassung fragte nach
+      der Raumlage (M1-M6), einem Getriebebegriff; S. 45 nennt aber die
+      Einbaulage des Umrichters. Ersatz als unbeantwortbare Frage offen.
 
   - id: q-023
     category: unanswerable
@@ -410,9 +457,9 @@ questions:
     supplementary_facts: []
     notes: >-
       Falsche Prämisse: Frequenzumrichter haben keine Schmierstoff-/Ölfüllung,
-      das Konzept gilt nur für die SEW-Getriebe. Wie q-022 eine
-      Domänen-Verwechslung, hier mit einem Konzept, das im Korpus mehrfach
-      vorkommt, nur nie in Verbindung mit dem G120C.
+      das Konzept gilt nur für die SEW-Getriebe. Ablenker: A01590 "Motor
+      Wartungsintervall abgelaufen" (Listenhandbuch S. 481) betrifft ein
+      einstellbares Intervall für den Motor, nicht den Umrichter.
 
   - id: q-024
     category: table
@@ -435,34 +482,35 @@ questions:
   - id: q-025
     category: table
     question: >-
-      Bis zu welcher Umgebungstemperatur darf ein G120C FSA–FSC mit PROFINET laufen, und gilt das auch mit PROFIBUS?
+      Bis zu welcher Umgebungstemperatur darf mein G120C der Baugröße FSB mit PROFINET laufen?
     expected_sources:
       - any_of_pages:
           - document_id: siemens-g120c-kurz
             page: 369
     required_facts:
-      - "Mit PROFINET-Schnittstelle ist der G120C (Baugröße FSA-FSC) bis +55°C einsetzbar."
-      - "Mit USS-, MB-, CANopen- oder PROFIBUS-Schnittstelle ist dieselbe Baugröße bis +60°C einsetzbar."
-      - "Das sind 5°C mehr als bei PROFINET, obwohl es sich um dieselbe Baugröße handelt."
-    supplementary_facts: []
+      - "Mit PROFINET-Schnittstelle ist der G120C der Baugröße FSA bis FSC bis +55 °C einsetzbar."
+      - "Oberhalb von +40 °C muss die Ausgangsleistung reduziert werden (Derating)."
+    supplementary_facts:
+      - "Mit USS-, MB-, CANopen- oder PROFIBUS-Schnittstelle ist dieselbe Baugröße bis +60 °C einsetzbar."
     notes: >-
       Härtefall: die Zeile "Umgebungstemperatur" in Tabelle 10.3 hat vier
       Werte, abhängig von Baugröße UND Feldbus-Schnittstelle gleichzeitig,
-      testet ob das System beide Dimensionen korrekt kombiniert statt
-      pauschal einen Wert zu nennen.
-      v3: Belegseite 369 statt 363 (gedruckte statt PDF-Seitenzahl).
+      testet ob das System beide Dimensionen korrekt kombiniert statt pauschal
+      einen Wert zu nennen. v3: Belegseite 369 statt 363 (gedruckte statt
+      PDF-Seitenzahl). Der Hinweis zum Derating gilt für alle Zeilen über
+      +40 °C, pypdf ordnet ihn nur der Zeile FSAA zu.
 
   - id: q-026
     category: unanswerable
     question: >-
-      Wie viel kostet ein Schneckengetriebe S..37 von SEW-EURODRIVE?
+      Wie viel kostet ein Schneckengetriebe S37 von SEW-EURODRIVE?
     expected_sources: []
     required_facts: []
     supplementary_facts: []
     notes: >-
       Preisinformationen sind kein Teil der technischen Dokumentation im
-      Korpus, testet ob das System "nicht im Korpus enthalten" antwortet
-      statt einen Preis zu erfinden.
+      Korpus, testet ob das System "nicht im Korpus enthalten" antwortet statt
+      einen Preis zu erfinden.
 
   - id: q-027
     category: unanswerable
@@ -485,8 +533,9 @@ questions:
             page: 458
     required_facts:
       - "Das Präfix 'C' steht für eine Safety-Meldung."
+    supplementary_facts:
       - "Safety-Meldungen haben einen eigenen Meldungspuffer."
-    supplementary_facts: []
+      - "Die übrigen Präfixe: A steht für Warnung, F für Störung, N für keine Meldung."
     notes: >-
       Testet Kenntnis der Meldungspräfixe (A, F, N, C), die jeweils
       unterschiedliche Meldungstypen kennzeichnen.
@@ -494,14 +543,15 @@ questions:
   - id: q-029
     category: lookup
     question: >-
-      Welche Ölsumpftemperatur verträgt ein Radialwellendichtring aus FKM?
+      Welche Ölsumpftemperatur verträgt ein Radialwellendichtring aus FKM in meinem Stirnradgetriebe R77?
     expected_sources:
       - any_of_pages:
           - document_id: sew-schmierstoffe
             page: 6
     required_facts:
       - "-25°C bis +115°C."
-    supplementary_facts: []
+    supplementary_facts:
+      - "Bei tiefen Temperaturen können Radialwellendichtringe einer Wellenauslenkung (z. B. durch Querkraft) nur eingeschränkt folgen; radiale Verlagerungen der Welle sind dann zu vermeiden oder zu begrenzen."
     notes: >-
       Kleine Tabelle mit drei Werkstoffklassen (NBR, FKM, FKM-PSS), FKM und
       FKM-PSS haben denselben Bereich, NBR einen anderen, testet
@@ -510,14 +560,16 @@ questions:
   - id: q-030
     category: lookup
     question: >-
-      Wie fest ziehe ich die Messnippel für die Schwingungsmessung am Motor an?
+      Wie fest ziehe ich die Messnippel für die Schwingungsmessung an meinem Motor DRN132M4 an?
     expected_sources:
       - any_of_pages:
           - document_id: sew-motoren-drn
             page: 64
     required_facts:
       - "15 Nm."
-    supplementary_facts: []
+    supplementary_facts:
+      - "Vor dem Einschrauben die Verschluss-Stopfen aus den Gewindebohrungen entfernen (A- und B-seitig)."
+      - "Je nach Bestellung wird der Motor nur mit Gewindebohrungen oder zusätzlich mit beigelegten Messnippeln geliefert."
     notes: >-
       Einfacher, eindeutiger Fließtext-Fakt aus dem Kapitel "Anbauvorrichtung
       für Messnippel".
@@ -525,48 +577,55 @@ questions:
   - id: q-031
     category: lookup
     question: >-
-      Welches Bit im ZSW1 zeigt beim G120C eine Störung an, und welches eine Warnung?
+      Ich werte in meiner SPS das Zustandswort ZSW1 des G120C aus. An welchem Bit erkenne ich eine Störung, und an welchem eine Warnung?
     expected_sources:
       - any_of_pages:
           - document_id: siemens-g120c-liste
             page: 454
+          - document_id: siemens-g120c-kurz
+            page: 164
     required_facts:
       - "Eine Störung setzt das Zustandssignal ZSW1.3."
       - "Eine Warnung setzt das Zustandssignal ZSW1.7."
-    supplementary_facts: []
+    supplementary_facts:
+      - "Störungen müssen nach Beseitigung der Ursache quittiert werden, Warnungen setzen sich selbst zurück, sobald die Ursache weg ist."
     notes: >-
       Härtefall: zwei strukturell ähnliche, aber unterschiedliche
       Bit-Zuordnungen (ZSW1.3 vs. ZSW1.7) für zwei leicht verwechselbare
       Begriffe, testet präzise Unterscheidung statt einer pauschalen Antwort.
+      v4: Die Bit-Tabelle des ZSW1 in der Kompaktbetriebsanleitung (S. 164)
+      ist gleichwertig zu S. 454.
 
   - id: q-032
     category: lookup
     question: >-
-      Bei welchen Raumlagen ist im R..-Getriebe das Wälzlager mit Laufnummer 37 fettgeschmiert?
+      Mein Stirnradgetriebe R57 lag über drei Jahre im Lager und wird jetzt in Raumlage M2 eingebaut. Welche Wälzlager muss ich vor der Inbetriebnahme nachfetten?
     expected_sources:
       - any_of_pages:
           - document_id: sew-getriebe-ba
             page: 175
     required_facts:
-      - "Laufnummer 37 ist nur bei den Raumlagen M2 und MX fettgeschmiert."
-      - "Die Laufnummern 11 und 25 sind dagegen bei allen Raumlagen (M1-M6, MX) fettgeschmiert."
-    supplementary_facts: []
+      - "In Raumlage M2 sind die Lager mit den Laufnummern 11, 25 und 37 fettgeschmiert und nachzufetten."
+    supplementary_facts:
+      - "In den übrigen Raumlagen sind nur die Lager 11 und 25 fettgeschmiert."
+      - "Nach über 3 Jahren Lagerung sind außerdem ein Ölwechsel und der Austausch der Wellendichtringe fällig."
     notes: >-
-      Härtefall: Laufnummer 37 ist nur für einen Teil der Raumlagen relevant,
-      anders als 11/25, testet ob das System zwischen "immer gültig" und "nur
-      unter Bedingung X gültig" unterscheidet.
+      Härtefall: Lager 37 ist nur in M2 und MX fettgeschmiert, 11 und 25 in
+      allen Raumlagen. v4: Die Frage nennt keine Laufnummer mehr; in der
+      Antwort bleiben sie, weil S. 175 die Lager nur über Laufnummern nennt.
 
   - id: q-033
     category: lookup
     question: >-
-      Für welche Umweltbelastung ist der Oberflächenschutz OS3 gedacht?
+      Ich bestelle ein Flachgetriebe F67 mit Oberflächenschutz OS3. Für welche Umweltbelastung ist das gedacht?
     expected_sources:
       - any_of_pages:
           - document_id: sew-katalog-projektierung
             page: 19
     required_facts:
       - "Hohe Umweltbelastung."
-    supplementary_facts: []
+    supplementary_facts:
+      - "Ohne weitere Angabe wird das Getriebe mit OS1 geliefert; OS2, OS3 oder OS4 sind auf Wunsch bestellbar."
     notes: >-
       Vier Oberflächenschutzklassen OS1-OS4 für geringe bis sehr hohe
       Umweltbelastung, testet korrekte Zuordnung der mittleren Klasse statt
@@ -574,13 +633,8 @@ questions:
 
   - id: q-034
     category: multi-hop
-    # Frage mit Dokumentbezug, bewusst behalten, weil die Gegenüberstellung
-    # Katalog gegen Typenschild sonst wegfällt.
     question: >-
-      Welche Wirkungsgrad-/Energieeffizienzklasse nennen der Katalog
-      (Kapitel 2.3) und das Beispiel-Typenschild in der
-      Getriebe-Betriebsanleitung jeweils für einen Elektromotor, und sind
-      diese beiden Angaben direkt miteinander vergleichbar?
+      Unser älterer Energiesparmotor vom Typ DTE ist als EFF1 eingestuft, der neue Motor DRN90L4 hat IE3 auf dem Typenschild. Sind das dieselben Effizienzklassen?
     expected_sources:
       - any_of_pages:
           - document_id: sew-katalog-projektierung
@@ -588,71 +642,73 @@ questions:
       - any_of_pages:
           - document_id: sew-getriebe-ba
             page: 22
+          - document_id: sew-motoren-drn
+            page: 23
     required_facts:
-      - "sew-katalog-projektierung nutzt die CEMEP-Klassifikation EFF1/EFF2/EFF3."
-      - "DTE/DVE-Motoren (90S-280M) erfüllen EFF1 und werden als 'Energiesparmotoren' bezeichnet."
-      - "DT/DV-Motoren (90S-280M) erfüllen EFF2."
-      - "Das Beispiel-Typenschild in sew-getriebe-ba zeigt an Position [5] 'IE3'."
-      - "IE3 gehört zur neueren, gesetzlich vorgeschriebenen IEC-60034-30-1-Klassifikation (IE1-IE4)."
-      - "EFF und IE sind nicht direkt vergleichbar, sondern zwei unterschiedliche, historisch aufeinanderfolgende Klassifikationssysteme."
-      - "Die EFF-Klassifikation wurde durch die IE-Klassifikation ersetzt."
-      - "Der Katalog (Ausgabe 07/2006) ist rund 20 Jahre älter als die aktuelle Betriebsanleitung (07/2026) und zeigt deshalb noch die alte Norm."
-    supplementary_facts: []
+      - "EFF1 ist eine Wirkungsgradklasse nach der Vereinbarung des CEMEP (Klassen EFF3, EFF2, EFF1; EFF1 bezeichnet hoch effiziente Motoren)."
+      - "IE3 ist eine Energie-Effizienzklasse nach IEC 60034-30-1."
+      - "Es sind zwei verschiedene Klassifizierungen, die Klassen lassen sich nicht direkt gleichsetzen."
+    supplementary_facts:
+      - "DRN-Motoren sind Energiesparmotoren der Klasse Premium-Efficiency IE3; DR2S-Motoren entsprechen IE1, DRU-Motoren IE4."
+      - "DTE/DVE-Motoren der Größen 90S bis 280M werden als Energiesparmotoren bezeichnet."
     notes: >-
-      Selbst gefundene Verbindung, kein cross_references-Muster. Anders als
-      q-007/q-008/q-015 ergänzen sich die Dokumente hier nicht, sondern
-      widersprechen sich scheinbar (EFF3 vs. IE3 klingen ähnlich, sind aber
-      inkompatible Systeme), testet ob das System den Unterschied erkennt.
-      Hängt mit der korrigierten Katalog-Edition (07/2006 statt 07/2026)
-      zusammen.
+      Härtefall: EFF und IE klingen ähnlich, sind aber zwei Systeme aus
+      verschiedenen Dokumenten. Die Klassenzeichen auf S. 16 (EFF1, EFF2)
+      sind Bilder, pypdf liefert sie nicht. v4: Ersetzt eine Frage nach
+      "Katalog (Kapitel 2.3)" und "Beispiel-Typenschild"; Fakten ohne Beleg
+      im Korpus (EFF durch IE ersetzt, Alter des Katalogs) entfernt.
 
   - id: q-035
     category: multi-hop
     question: >-
-      Mein SEW-Motor hat /TF, /TH, /PK oder /PT – welche davon wertet der G120C bei F07011 aus?
+      Ich bestelle einen Motor DRN132M4 für den Betrieb an einem G120C. Welchen Temperaturfühler sollte ich als Option wählen, damit der Umrichter die Motortemperatur überwacht?
     expected_sources:
       - any_of_pages:
           - document_id: sew-motoren-drn
             page: 28
       - any_of_pages:
+          - document_id: siemens-g120c-kurz
+            page: 225
           - document_id: siemens-g120c-liste
             page: 501
     required_facts:
-      - "sew-motoren-drn bietet die Option /TF (Kaltleiter oder PTC-Widerstand)."
-      - "sew-motoren-drn bietet die Option /TH (Thermostat/Bimetallschalter)."
-      - "sew-motoren-drn bietet die Option /PK (Pt1000-Sensor)."
-      - "sew-motoren-drn bietet die Option /PT (Pt100-Sensor)."
-      - "siemens-g120c-liste nennt bei F07011 als Sensortypen für die Motorübertemperatur-Auswertung nur 'KTY' und 'PTC oder Bimetall-Öffner'."
-      - "Das entspricht den Motor-Optionen /TF und /TH."
-      - "/PK (Pt1000) und /PT (Pt100) werden in der F07011-Ursachenbeschreibung nicht genannt."
-      - "Diese beiden Optionen sind daher nicht ohne Weiteres über die Standard-Auswertung des G120C kompatibel."
-    supplementary_facts: []
+      - "/TF (Kaltleiter/PTC) oder /TH (Bimetallschalter), denn der G120C wertet PTC-Sensoren und Temperaturschalter aus."
+      - "/PK (Pt1000) und /PT (Pt100) gehören nicht zu den Sensoren, die der G120C auswertet."
+    supplementary_facts:
+      - "Der G120C wertet außerdem KTY84-Sensoren aus."
     notes: >-
-      Selbst gefundene Verbindung. Härtefall: vier ähnlich benannte
-      Optionskürzel (/TF, /TH, /PK, /PT), von denen nur zwei zum
-      beschriebenen Auswertungsverfahren passen, testet präzise Filterung
-      statt der Annahme, alle Optionen funktionierten gleich.
+      Härtefall: vier ähnlich benannte Optionskürzel, von denen nur zwei zum
+      Umrichter passen. v4: Die G120C-Anleitung S. 225 nennt die zulässigen
+      Sensoren abschließend; vorher nur aus F07011 (S. 501) abgeleitet.
 
   - id: q-036
     category: table
     question: >-
-      Wo finde ich die komplette Liste aller Parameter, Warnungen und Störungen des G120C, und wie ausführlich ist sie?
+      Wie lang darf das geschirmte Motorkabel an meinem G120C ohne Ausgangsdrossel höchstens sein?
     expected_sources:
       - any_of_pages:
           - document_id: siemens-g120c-kurz
-            page: 419
+            page: 369
     required_facts:
-      - "siemens-g120c-kurz verweist für die 'komplette Liste aller Parameter, Warnungen und Störungen' auf das Listenhandbuch SINAMICS G120C."
-      - "Das Listenhandbuch hat die Informationstiefe '+++'."
-      - "Die Kompaktbetriebsanleitung selbst hat nur die Informationstiefe '++'."
-      - "Das Listenhandbuch ist damit die detailliertere Quelle für diese Inhalte."
+      - "Ohne Ausgangsdrossel darf das geschirmte Motorkabel bei 4 kHz Schaltfrequenz bis zu 50 m lang sein."
+      - "Zur Erfüllung von EMV-Kategorie C2 sind nur 25 m geschirmt zulässig."
+    supplementary_facts:
+      - "Ungeschirmt sind ohne Ausgangsdrossel bis zu 100 m zulässig."
+      - "Mit Ausgangsdrossel sind längere Leitungen möglich: geschirmt 150 m bei Netzspannung unter 440 V, 100 m darüber."
+    notes: >-
+      Härtefall: Die Zeile "Maximale Motorleitungslänge" hat vier Werte je
+      nach Schirmung, Ausgangsdrossel, Netzspannung und EMV-Kategorie.
+      v4: Ersetzt eine Frage nach der Informationstiefe der Handbücher.
+
+  - id: q-037
+    category: unanswerable
+    question: >-
+      Kann ich meinen G120C direkt per OPC UA an unser MES anbinden?
+    expected_sources: []
+    required_facts: []
     supplementary_facts: []
     notes: >-
-      Härtefall: testet, ob Retrieval die Handbuch-Übersichtstabelle korrekt
-      als Wegweiser liest (zwei unterschiedliche Informationstiefe-Angaben,
-      '+++' vs. '++', in derselben Tabelle für verschiedene Handbücher).
-      Beobachtungskandidat für den ersten v2-Lauf: ohne die Dokument-ID kann
-      das Retrieval das Listenhandbuch selbst liefern, das zählt als verfehlt.
-      Zu Recht, denn die erwarteten Fakten ('+++' gegen '++') stehen nur in
-      der Übersichtstabelle der Kompaktbetriebsanleitung.
-      v3: Belegseite 419 statt 413 (gedruckte statt PDF-Seitenzahl).
+      OPC UA kommt im Korpus nicht vor. Ablenker: Die G120C-Anleitung nennt
+      die unterstützten Feldbusse (u. a. PROFINET, EtherNet/IP); eine Liste
+      davon beantwortet die Frage nicht. v4: Ersatz für q-022, die
+      beantwortbar wurde.
