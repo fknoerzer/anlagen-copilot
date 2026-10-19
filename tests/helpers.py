@@ -175,7 +175,8 @@ def make_eval_question(**overrides: object) -> EvalQuestion:
         "category": "lookup",
         "question": "Testfrage?",
         "expected_sources": [make_expected_source(("sew-getriebe-ba", 1))],
-        "expected_facts": ["Testfakt."],
+        "required_facts": ["Testfakt."],
+        "supplementary_facts": [],
     }
     defaults.update(overrides)
     return EvalQuestion.model_validate(defaults)

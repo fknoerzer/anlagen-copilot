@@ -58,7 +58,13 @@ class EvalQuestion(BaseModel):
     """One eval question from data/eval_set.yaml with its expected sources and facts.
 
     Ground truth for scoring the RAG pipeline: expected_sources for the
-    retrieval comparison, expected_facts for the answer comparison.
+    retrieval comparison, required_facts and supplementary_facts for the answer
+    comparison.
+
+    The facts come in two lists because one list leaves the fact check only
+    two bad choices: demand every fact, and a short correct answer fails, or
+    demand none, and nothing is checked. Required is what the question asks
+    for; supplementary is what a good answer may add.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -67,7 +73,8 @@ class EvalQuestion(BaseModel):
     category: Literal["lookup", "table", "diagram", "multi-hop", "unanswerable"]
     question: str
     expected_sources: list[ExpectedSource]
-    expected_facts: list[str]
+    required_facts: list[str]
+    supplementary_facts: list[str]
     notes: str | None = None
 
     @model_validator(mode="after")
@@ -94,22 +101,28 @@ class EvalQuestion(BaseModel):
 
     @model_validator(mode="after")
     def check_unanswerable_consistency(self) -> Self:
-        """Require unanswerable questions to be empty and every other one filled.
+        """Require no content for unanswerable questions, sources and a required fact otherwise.
 
         Without this check an unanswerable question could carry sources by
-        accident (which are then never reachable), or an answerable one could
-        end up with no ground truth at all.
+        accident (which are then never reachable), and an answerable one without
+        a required fact could never be judged incomplete by the fact check.
+        Supplementary facts stay optional: a correct answer may leave them out.
 
         Raises:
-            ValueError: On an inconsistent combination of category and content.
+            ValueError: When an unanswerable question carries a source or a fact,
+                or an answerable one lacks a source or a required fact.
         """
-        is_unanswerable = self.category == "unanswerable"
-        has_content = bool(self.expected_sources or self.expected_facts)
+        if self.category == "unanswerable":
+            if self.expected_sources or self.required_facts or self.supplementary_facts:
+                raise ValueError(
+                    f"{self.id}: unanswerable question must have neither sources nor facts"
+                )
+            return self
 
-        if is_unanswerable and has_content:
-            raise ValueError(f"{self.id}: unanswerable question must not have sources or facts")
-        if not is_unanswerable and not has_content:
-            raise ValueError(f"{self.id}: answerable question needs sources and facts")
+        if not self.expected_sources:
+            raise ValueError(f"{self.id}: answerable question needs at least one source")
+        if not self.required_facts:
+            raise ValueError(f"{self.id}: answerable question needs at least one required fact")
         return self
 
 

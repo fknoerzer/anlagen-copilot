@@ -46,7 +46,7 @@ def _unanswerable(**overrides: object) -> EvalQuestion:
         "id": "q-none",
         "category": "unanswerable",
         "expected_sources": [],
-        "expected_facts": [],
+        "required_facts": [],
     }
     defaults.update(overrides)
     return make_eval_question(**defaults)

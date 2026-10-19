@@ -172,7 +172,7 @@ def test_run_retrieval_leaves_the_recall_alone_for_an_unanswerable_question(
             make_eval_question(id="q-1"),
             make_eval_question(id="q-2"),
             make_eval_question(
-                id="q-3", category="unanswerable", expected_sources=[], expected_facts=[]
+                id="q-3", category="unanswerable", expected_sources=[], required_facts=[]
             ),
         ],
         [[_make_source(page=1)], [_make_source(page=99)], [_make_source(page=5, score=0.6)]],
@@ -368,7 +368,7 @@ def test_run_retrieval_counts_a_source_once_and_keeps_every_source(
         ],
     )
     unanswerable = make_eval_question(
-        id="q-none", category="unanswerable", expected_sources=[], expected_facts=[]
+        id="q-none", category="unanswerable", expected_sources=[], required_facts=[]
     )
     returned = [
         _make_source(document_id="sew-schmierstoffe", page=7),
@@ -407,7 +407,7 @@ def test_run_retrieval_records_no_ranks_for_an_unanswerable_question(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """An empty list, not None: measured, with nothing to rank — None means not recorded."""
-    question = make_eval_question(category="unanswerable", expected_sources=[], expected_facts=[])
+    question = make_eval_question(category="unanswerable", expected_sources=[], required_facts=[])
     _patch_run_retrieval(monkeypatch, [question], [[_make_source()]])
 
     run = run_retrieval(runs_path=tmp_path / "eval_runs.jsonl")

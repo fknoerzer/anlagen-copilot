@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from helpers import make_eval_question, make_expected_source
 
 from anlagen_copilot.eval import load_eval
 
@@ -19,8 +20,9 @@ questions:
       - any_of_pages:
           - document_id: sew-getriebe-ba
             page: 1
-    expected_facts:
+    required_facts:
       - Testfakt.
+    supplementary_facts: []
     notes: Test-Notiz.
 """,
         encoding="utf-8",
@@ -67,12 +69,13 @@ questions:
     category: lookup
     question: Testfrage?
     expected_sources: []
-    expected_facts: []
+    required_facts: []
+    supplementary_facts: []
     notes: Test-Notiz.
 """,
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="answerable question needs sources and facts"):
+    with pytest.raises(ValueError, match="answerable question needs at least one source"):
         load_eval(f)
 
 
@@ -86,7 +89,8 @@ questions:
     category: unanswerable
     question: Testfrage?
     expected_sources: []
-    expected_facts: []
+    required_facts: []
+    supplementary_facts: []
     notes: Test-Notiz.
 """,
         encoding="utf-8",
@@ -117,12 +121,13 @@ questions:
       - any_of_pages:
           - document_id: sew-getriebe-ba
             page: 1
-    expected_facts: []
+    required_facts: []
+    supplementary_facts: []
     notes: Test-Notiz.
 """,
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="must not have sources or facts"):
+    with pytest.raises(ValueError, match="must have neither sources nor facts"):
         load_eval(f)
 
 
@@ -145,8 +150,9 @@ questions:
       - any_of_pages:
           - document_id: falsche-id
             page: 1
-    expected_facts:
+    required_facts:
       - x
+    supplementary_facts: []
     notes: Test-Notiz.
 """,
         encoding="utf-8",
@@ -165,7 +171,8 @@ questions:
     category: unanswerable
     question: Testfrage?
     expected_sources: []
-    expected_facts: []
+    required_facts: []
+    supplementary_facts: []
 """,
         encoding="utf-8",
     )
@@ -185,7 +192,8 @@ questions:
     category: unanswerable
     question: Testfrage?
     expected_sources: []
-    expected_facts: []
+    required_facts: []
+    supplementary_facts: []
 """,
         encoding="utf-8",
     )
@@ -206,8 +214,9 @@ questions:
     question: Testfrage?
     expected_sources:
       - any_of_pages: []
-    expected_facts:
+    required_facts:
       - Testfakt.
+    supplementary_facts: []
 """,
         encoding="utf-8",
     )
@@ -235,11 +244,60 @@ questions:
             page: 2
           - document_id: sew-getriebe-ba
             page: 1
-    expected_facts:
+    required_facts:
       - Testfakt.
+    supplementary_facts: []
 """,
         encoding="utf-8",
     )
 
     with pytest.raises(ValueError, match="q-test: sew-getriebe-ba p. 1 is listed twice"):
         load_eval(f)
+
+
+@pytest.mark.parametrize(
+    ("category", "has_sources", "required_facts", "supplementary_facts", "message"),
+    [
+        pytest.param(
+            "lookup",
+            True,
+            [],
+            ["Zusatz."],
+            "needs at least one required fact",
+            id="answerable-without-required-fact",
+        ),
+        pytest.param(
+            "lookup",
+            False,
+            ["Testfakt."],
+            [],
+            "needs at least one source",
+            id="answerable-without-source",
+        ),
+        pytest.param(
+            "unanswerable",
+            False,
+            [],
+            ["Zusatz."],
+            "must have neither sources nor facts",
+            id="unanswerable-with-supplementary-fact",
+        ),
+    ],
+)
+def test_eval_question_rejects_content_that_does_not_fit_its_category(
+    category: str,
+    has_sources: bool,
+    required_facts: list[str],
+    supplementary_facts: list[str],
+    message: str,
+) -> None:
+    """Without a required fact the fact check could never call an answer incomplete."""
+    sources = [make_expected_source(("sew-getriebe-ba", 1))] if has_sources else []
+
+    with pytest.raises(ValueError, match=message):
+        make_eval_question(
+            category=category,
+            expected_sources=sources,
+            required_facts=required_facts,
+            supplementary_facts=supplementary_facts,
+        )
