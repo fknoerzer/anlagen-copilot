@@ -21,9 +21,9 @@ Der Korpus umfasst **6 Handbücher** von SEW-EURODRIVE und Siemens (SINAMICS G12
 
 ## Ergebnisse
 
-Das Eval-Set hat 36 Fragen: 31 beantwortbare mit zusammen 36 Belegseiten (Multi-Hop-Fragen brauchen zwei) und 5 unbeantwortbare. Ein **Beleg** ist die Handbuchseite, auf der die Antwort steht; gezählt wird beim Retrieval je Beleg, nicht je Frage.
+Das Eval-Set hat 37 Fragen: 32 beantwortbare mit zusammen 36 Belegseiten (Multi-Hop-Fragen brauchen zwei) und 5 unbeantwortbare. Ein **Beleg** ist die Handbuchseite, auf der die Antwort steht; gezählt wird beim Retrieval je Beleg, nicht je Frage.
 
-Gemessen auf Eval-Set v3, Commit `a2454fd`; Spannen über drei Läufe, weil der Reranker nicht deterministisch ist. Läufe, Zählweise, ein Beispiel Schritt für Schritt und die Zahlen je Fragetyp für die Antworten stehen in [docs/messungen.md](docs/messungen.md).
+Gemessen auf Eval-Set v4, Commit `e85aab9`; Spannen über drei Läufe (Retrieval) bzw. fünf (Antworten), weil der Reranker nicht deterministisch ist. Läufe, Zählweise, ein Beispiel Schritt für Schritt und die Zahlen je Fragetyp für die Antworten stehen in [docs/messungen.md](docs/messungen.md).
 
 ### Retrieval
 
@@ -32,27 +32,27 @@ Gemessen auf Eval-Set v3, Commit `a2454fd`; Spannen über drei Läufe, weil der 
 ```mermaid
 xychart-beta horizontal
     title "Belege gefunden, von 36"
-    x-axis ["Vektorsuche, Top 5", "Reranking, Top 5 (27–28)", "Unter den 20 Kandidaten", "Vektorsuche, Top 50"]
+    x-axis ["Vektorsuche, Top 5", "Reranking, Top 5 (25–26)", "Unter den 20 Kandidaten", "Vektorsuche, Top 50"]
     y-axis "Belege" 0 --> 36
-    bar [22, 27, 30, 33]
+    bar [24, 25, 28, 33]
 ```
 
-Beim Reranking holt die Vektorsuche 20 Kandidaten, ein Sprachmodell (Claude Haiku 4.5) wählt daraus die besten 5. Es schöpft die 30 Belege unter den Kandidaten fast aus; die übrigen **6 kommen gar nicht erst unter die Kandidaten**. Der nächste Hebel liegt also vor dem Reranking, nicht darin. Am stärksten profitieren Fragen, die zwei Handbücher brauchen:
+Beim Reranking holt die Vektorsuche 20 Kandidaten, ein Sprachmodell (Claude Haiku 4.5) wählt daraus die besten 5. Von den 28 Belegen unter den Kandidaten bringt es 25–26 in die Top 5; **8 kommen gar nicht erst unter die Kandidaten**. Der größere Hebel liegt also vor dem Reranking, nicht darin. Profitieren können davon nur Fragen, die zwei Handbücher brauchen:
 
 | Fragetyp | Nur Vektorsuche | Unter den 20 Kandidaten | Mit Reranking |
 |---|---:|---:|---:|
-| Zwei Handbücher (Multi-Hop) | 2 / 10 | 7 / 10 | 5–6 / 10 |
-| Zeichnung | 7 / 8 | 8 / 8 | 7 / 8 |
-| Nachschlagen | 7 / 10 | 8 / 10 | 8 / 10 |
-| Tabelle | 6 / 8 | 7 / 8 | 7 / 8 |
-| **Gesamt** | **22 / 36 (61 %)** | **30 / 36 (83 %)** | **27–28 / 36 (75–78 %)** |
+| Zwei Handbücher (Multi-Hop) | 3 / 8 | 6 / 8 | 4–5 / 8 |
+| Zeichnung | 5 / 7 | 6 / 7 | 5 / 7 |
+| Nachschlagen | 10 / 13 | 10 / 13 | 10 / 13 |
+| Tabelle | 6 / 8 | 6 / 8 | 6 / 8 |
+| **Gesamt** | **24 / 36 (67 %)** | **28 / 36 (78 %)** | **25–26 / 36 (69–72 %)** |
 
 ### Generierung
 
 Claude Sonnet 5 antwortet aus den 5 Seiten nach dem Reranking.
 
-- **Belege:** Liegt ein Beleg im Prompt, zitiert die Antwort ihn in 86–92 % der Fälle.
-- **Ablehnung:** Von 5 Fragen, die die Handbücher nicht beantworten, lehnt das Modell 4–5 ab; von 31 beantwortbaren lehnt es 3 fälschlich ab.
+- **Belege:** Liegt ein Beleg im Prompt, zitiert die Antwort ihn in 88–96 % der Fälle.
+- **Ablehnung:** Die 5 Fragen, die die Handbücher nicht beantworten, lehnt das Modell in allen Läufen ab; von 32 beantwortbaren lehnt es 4–5 fälschlich ab, bei dreien davon lag der Beleg nicht im Prompt.
 
 Ob die Aussagen inhaltlich stimmen, ist noch nicht gemessen: Der Abgleich mit den erwarteten Fakten im Eval-Set steht noch aus.
 
@@ -60,8 +60,8 @@ Ob die Aussagen inhaltlich stimmen, ist noch nicht gemessen: Der Abgleich mit de
 
 | | Nur Vektorsuche | Mit Reranking | Antwortgenerierung (zusätzlich) | Gesamt |
 |---|---:|---:|---:|---:|
-| Kosten je Eval-Lauf (36 Fragen) | < 0,01 $ | ~0,60 $ | ~0,58 $ | ~1,18 $ |
-| Latenz je Frage (Median) | 0,2 s | 2,8–3,0 s | 3,3–3,8 s | ~6,1–6,8 s |
+| Kosten je Eval-Lauf (37 Fragen) | < 0,01 $ | ~0,59 $ | 0,61–0,66 $ | ~1,20–1,25 $ |
+| Latenz je Frage (Median) | 0,2 s | 2,3–2,5 s | 4,2–5,4 s | ~6,5–7,9 s |
 
 Die Gesamtspalte ist die Summe der beiden Spalten davor, kein eigener Messwert; bei der Latenz ist es die Summe zweier Mediane.
 
@@ -77,7 +77,7 @@ Die Gesamtspalte ist die Summe der beiden Spalten davor, kein eigener Messwert; 
 
 ### Bekannte Grenzen
 
-Das Eval-Set ist klein: Eine Belegseite bewegt den Gesamtwert um knapp 3 Prozentpunkte, bei Multi-Hop um 10, und bei den fünf unbeantwortbaren Fragen zählt jede Frage 20 Prozentpunkte. Gemessen wird auf einem einzigen Korpus aus sechs Handbüchern zweier Hersteller. Die Textextraktion mit pypdf verliert die Spaltenstruktur von Tabellen, sodass sich Werte ihren Zeilen nicht mehr sicher zuordnen lassen. Die erwarteten Fakten der Antworten sind noch nicht geprüft.
+Das Eval-Set ist klein: Eine Belegseite bewegt den Gesamtwert um knapp 3 Prozentpunkte, bei Multi-Hop um gut 12, und bei den fünf unbeantwortbaren Fragen zählt jede Frage 20 Prozentpunkte. Gemessen wird auf einem einzigen Korpus aus sechs Handbüchern zweier Hersteller. Die Textextraktion mit pypdf verliert die Spaltenstruktur von Tabellen, sodass sich Werte ihren Zeilen nicht mehr sicher zuordnen lassen. Die erwarteten Fakten der Antworten sind noch nicht geprüft.
 
 ## Architektur
 
