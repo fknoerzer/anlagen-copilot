@@ -3,19 +3,16 @@ from typing import cast
 
 import pytest
 from anthropic import Anthropic
-from anthropic.types import Message, StopReason, TextBlock, ToolUseBlock
-from helpers import FakeAnthropic, make_message, was_logged
+from anthropic.types import Message, ToolUseBlock
+from helpers import NO_ANTHROPIC, FakeAnthropic, make_message, was_logged
 from pydantic import ValidationError
 
 from anlagen_copilot.rerank import _OUTPUT_FORMAT, GradedSource, rerank
 from anlagen_copilot.retrieval import Source
 
-# `helpers.NO_CLIENT` is typed as OpenAI.
-NO_CLIENT = cast(Anthropic, None)
 
-
-def _message(grades: object, *, stop_reason: StopReason = "end_turn") -> Message:
-    return make_message(json.dumps({"grades": grades}), stop_reason=stop_reason)
+def _message(grades: object) -> Message:
+    return make_message(json.dumps({"grades": grades}))
 
 
 def _candidates() -> list[Source]:
@@ -33,11 +30,11 @@ def _pages(graded: list[GradedSource]) -> list[int]:
 
 def test_rerank_rejects_top_n_below_one() -> None:
     with pytest.raises(ValueError):
-        rerank(NO_CLIENT, "Frage?", _candidates(), model="m", top_n=0, temperature=0.0)
+        rerank(NO_ANTHROPIC, "Frage?", _candidates(), model="m", top_n=0, temperature=0.0)
 
 
 def test_rerank_without_candidates_makes_no_call() -> None:
-    result = rerank(NO_CLIENT, "Frage?", [], model="m", top_n=5, temperature=0.0)
+    result = rerank(NO_ANTHROPIC, "Frage?", [], model="m", top_n=5, temperature=0.0)
 
     assert result.graded == []
     assert (result.input_tokens, result.output_tokens) == (0, 0)
@@ -137,10 +134,7 @@ def test_rerank_gives_an_ungraded_page_zero_and_warns(caplog: pytest.LogCaptureF
 
 def test_rerank_rejects_an_answer_cut_off_by_max_tokens() -> None:
     """The stop reason is checked before the JSON, so the message names it."""
-    message = _message([])
-    message.stop_reason = "max_tokens"
-    message.content = [TextBlock(type="text", text='{"grades": [{"id": 1, "gra', citations=None)]
-    client = FakeAnthropic(message)
+    client = FakeAnthropic(make_message('{"grades": [{"id": 1, "gra', stop_reason="max_tokens"))
 
     with pytest.raises(ValueError, match="max_tokens"):
         rerank(
@@ -149,8 +143,7 @@ def test_rerank_rejects_an_answer_cut_off_by_max_tokens() -> None:
 
 
 def test_rerank_rejects_a_response_without_text() -> None:
-    message = _message([])
-    message.content = [ToolUseBlock(id="toolu_test", name="x", type="tool_use", input={})]
+    message = make_message([ToolUseBlock(id="toolu_test", name="x", type="tool_use", input={})])
     client = FakeAnthropic(message)
 
     with pytest.raises(ValueError, match="no grades"):

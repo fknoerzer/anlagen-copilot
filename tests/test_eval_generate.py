@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock
 
 import pytest
-from helpers import make_eval_question, make_expected_source, was_logged
+from helpers import make_answer, make_eval_question, make_expected_source, was_logged
 from pydantic import ValidationError
 
 from anlagen_copilot.eval import EvalQuestion, EvalSet
@@ -27,15 +27,6 @@ def _source(page: int, document_id: str = "sew-getriebe-ba") -> Source:
     return Source(document_id=document_id, page=page, score=0.5, content=f"Seite {page}")
 
 
-def _answer(answered: bool, *statements: tuple[str, list[int]]) -> GeneratedAnswer:
-    return GeneratedAnswer.model_validate(
-        {
-            "answered": answered,
-            "statements": [{"text": text, "sources": ids} for text, ids in statements],
-        }
-    )
-
-
 def _question(**overrides: object) -> EvalQuestion:
     """An answerable question whose one expected page is `sew-getriebe-ba` p. 1."""
     return make_eval_question(**overrides)
@@ -54,7 +45,7 @@ def _unanswerable(**overrides: object) -> EvalQuestion:
 
 def test_score_answer_counts_a_page_cited_for_an_unanswerable_question() -> None:
     """Answering what the manuals do not cover is the dangerous case; `cited_total` shows it."""
-    score = _score_answer(_unanswerable(), _answer(True, ("Wert A", [1])), [_source(7)])
+    score = _score_answer(_unanswerable(), make_answer(True, ("Wert A", [1])), [_source(7)])
 
     assert score == Score(required=0, retrieved=0, used=0, cited_total=1)
 
@@ -68,7 +59,7 @@ def test_score_answer_follows_the_required_pages_to_the_answer() -> None:
         ]
     )
     sources = [_source(212), _source(7, "sew-schmierstoffe"), _source(209)]
-    answer = _answer(True, ("Wert A", [1, 2]), ("Hinweis B", [3]))
+    answer = make_answer(True, ("Wert A", [1, 2]), ("Hinweis B", [3]))
 
     score = _score_answer(question, answer, sources)
 
@@ -76,7 +67,7 @@ def test_score_answer_follows_the_required_pages_to_the_answer() -> None:
 
 
 def test_score_answer_counts_a_page_cited_twice_once() -> None:
-    answer = _answer(True, ("Wert A", [1]), ("Wert B", [1]))
+    answer = make_answer(True, ("Wert A", [1]), ("Wert B", [1]))
 
     score = _score_answer(_question(), answer, [_source(1)])
 
@@ -91,7 +82,7 @@ def test_score_answer_counts_a_source_once_when_both_its_pages_are_cited() -> No
         ]
     )
     sources = [_source(7, "sew-schmierstoffe"), _source(212)]
-    answer = _answer(True, ("Wert A", [1]), ("Wert B", [2]))
+    answer = make_answer(True, ("Wert A", [1]), ("Wert B", [2]))
 
     score = _score_answer(question, answer, sources)
 
@@ -106,14 +97,14 @@ def test_score_answer_counts_a_source_through_its_second_page() -> None:
         ]
     )
 
-    score = _score_answer(question, _answer(True, ("Wert A", [1])), [_source(212)])
+    score = _score_answer(question, make_answer(True, ("Wert A", [1])), [_source(212)])
 
     assert score == Score(required=1, retrieved=1, used=1, cited_total=1)
 
 
 def test_score_answer_tells_a_retrieved_page_from_a_used_one() -> None:
     """The required page is in the prompt, the answer cites another: a loss of generation."""
-    answer = _answer(True, ("Wert A", [2]))
+    answer = make_answer(True, ("Wert A", [2]))
 
     score = _score_answer(_question(), answer, [_source(1), _source(2)])
 
@@ -134,7 +125,7 @@ def _result(question: EvalQuestion, answered: bool, score: Score) -> GenerationR
     ids = [1] if answered else []
     return GenerationResult(
         answered=answered,
-        statements=_answer(answered, ("Aussage", ids)).statements,
+        statements=make_answer(answered, ("Aussage", ids)).statements,
         category=question.category,
         id=question.id,
         answered_by="answering-model",
@@ -237,7 +228,7 @@ def test_run_generation_records_the_answer_its_pages_and_its_score(
         monkeypatch,
         [_question()],
         _selection(pages, reranked=True),
-        _generated(_answer(True, ("Wert A", [2]))),
+        _generated(make_answer(True, ("Wert A", [2]))),
     )
 
     run = run_generation(
@@ -270,7 +261,7 @@ def test_run_generation_passes_the_question_text_not_the_eval_question(
         monkeypatch,
         [_question(question="Wie oft Lager prüfen?")],
         _selection([_source(1)], reranked=False),
-        _generated(_answer(True, ("Wert A", [1]))),
+        _generated(make_answer(True, ("Wert A", [1]))),
     )
 
     run_generation(generator="test-generator", runs_path=tmp_path / "runs.jsonl")
@@ -288,7 +279,7 @@ def test_run_generation_records_no_rerank_tokens_without_a_reranker(
         monkeypatch,
         [_question()],
         _selection([_source(1)], reranked=False),
-        _generated(_answer(True, ("Wert A", [1]))),
+        _generated(make_answer(True, ("Wert A", [1]))),
     )
 
     run = run_generation(generator="test-generator", runs_path=tmp_path / "runs.jsonl")
@@ -303,7 +294,7 @@ def test_run_generation_appends_the_run_to_its_file(
         monkeypatch,
         [_question()],
         _selection([_source(1)], reranked=False),
-        _generated(_answer(True, ("Wert A", [1]))),
+        _generated(make_answer(True, ("Wert A", [1]))),
     )
     runs_path = tmp_path / "generation" / "runs.jsonl"
 
@@ -325,7 +316,7 @@ def test_run_generation_names_the_question_when_an_answer_fails(
         monkeypatch,
         [_question(id="q-023", category="table")],
         _selection([_source(1)], reranked=False),
-        _generated(_answer(True, ("Wert A", [1]))),
+        _generated(make_answer(True, ("Wert A", [1]))),
     )
     generate.side_effect = ValueError("The answer cites source 6")
     runs_path = tmp_path / "runs.jsonl"
@@ -344,7 +335,7 @@ def test_run_generation_names_the_question_when_page_selection_fails(
         monkeypatch,
         [_question(id="q-023", category="table")],
         _selection([_source(1)], reranked=False),
-        _generated(_answer(True, ("Wert A", [1]))),
+        _generated(make_answer(True, ("Wert A", [1]))),
     )
     select.side_effect = ValueError("did not finish its grades")
 

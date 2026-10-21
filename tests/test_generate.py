@@ -4,20 +4,11 @@ from typing import cast
 import pytest
 from anthropic import Anthropic
 from anthropic.types import TextBlock, ThinkingBlock, ToolUseBlock
-from helpers import FakeAnthropic, make_message
+from helpers import NO_ANTHROPIC, FakeAnthropic, make_answer, make_message
 from pydantic import ValidationError
 
-from anlagen_copilot.generate import (
-    _OUTPUT_FORMAT,
-    GeneratedAnswer,
-    Statement,
-    _check_ids,
-    generate,
-)
+from anlagen_copilot.generate import _OUTPUT_FORMAT, Statement, _check_ids, generate
 from anlagen_copilot.retrieval import Source
-
-# `helpers.NO_CLIENT` is typed as OpenAI.
-NO_CLIENT = cast(Anthropic, None)
 
 
 def _answer_json(answered: bool, *statements: tuple[str, list[int]]) -> str:
@@ -27,10 +18,6 @@ def _answer_json(answered: bool, *statements: tuple[str, list[int]]) -> str:
             "statements": [{"text": text, "sources": ids} for text, ids in statements],
         }
     )
-
-
-def _answer(answered: bool, *statements: tuple[str, list[int]]) -> GeneratedAnswer:
-    return GeneratedAnswer.model_validate_json(_answer_json(answered, *statements))
 
 
 def _sources() -> list[Source]:
@@ -51,7 +38,7 @@ def _generate(client: FakeAnthropic, sources: list[Source] | None = None) -> Non
 
 
 def test_check_ids_rejects_an_id_above_the_source_count() -> None:
-    answer = _answer(True, ("Wert A", [4]))
+    answer = make_answer(True, ("Wert A", [4]))
 
     with pytest.raises(ValueError, match="cites source 4, but only sources 1 to 3"):
         _check_ids(answer, 3)
@@ -59,35 +46,35 @@ def test_check_ids_rejects_an_id_above_the_source_count() -> None:
 
 def test_check_ids_accepts_the_last_source() -> None:
     """Catches `<` where `<=` belongs: 3 of 3 is valid."""
-    _check_ids(_answer(True, ("Wert A", [3])), 3)
+    _check_ids(make_answer(True, ("Wert A", [3])), 3)
 
 
 def test_check_ids_rejects_zero() -> None:
     """Unchecked, id 0 would select the last page through `sources[-1]`."""
-    answer = _answer(True, ("Wert A", [0]))
+    answer = make_answer(True, ("Wert A", [0]))
 
     with pytest.raises(ValueError, match="cites source 0"):
         _check_ids(answer, 3)
 
 
 def test_refusal_without_sources_is_valid() -> None:
-    answer = _answer(False, ("Die Seiten erwähnen keinen Akku.", []))
+    answer = make_answer(False, ("Die Seiten erwähnen keinen Akku.", []))
 
     assert not answer.answered
 
 
 def test_refusal_that_cites_a_page_is_rejected() -> None:
     with pytest.raises(ValidationError, match="refusal but cites sources, in: 'Wert A'"):
-        _answer(False, ("Wert A", [1]))
+        make_answer(False, ("Wert A", [1]))
 
 
 def test_answer_without_any_source_is_rejected() -> None:
     with pytest.raises(ValidationError, match="cites no source"):
-        _answer(True, ("Wert A", []))
+        make_answer(True, ("Wert A", []))
 
 
 def test_partial_answer_names_its_gap_without_a_source() -> None:
-    answer = _answer(True, ("Wert A", [1]), ("Zu B enthalten die Seiten nichts.", []))
+    answer = make_answer(True, ("Wert A", [1]), ("Zu B enthalten die Seiten nichts.", []))
 
     assert answer.statements[1] == Statement(text="Zu B enthalten die Seiten nichts.", sources=[])
 
@@ -95,7 +82,7 @@ def test_partial_answer_names_its_gap_without_a_source() -> None:
 def test_generate_without_sources_fails_before_the_call() -> None:
     """An empty list means a misconfigured run, not an unanswerable question."""
     with pytest.raises(ValueError, match="No sources given"):
-        generate(NO_CLIENT, "Frage?", [], model="claude-test")
+        generate(NO_ANTHROPIC, "Frage?", [], model="claude-test")
 
 
 def test_generate_returns_the_answer_and_its_tokens() -> None:
@@ -103,7 +90,7 @@ def test_generate_returns_the_answer_and_its_tokens() -> None:
 
     result = generate(cast(Anthropic, client), "Frage?", _sources(), model="claude-test")
 
-    assert result.answer == _answer(True, ("Wert A", [2]))
+    assert result.answer == make_answer(True, ("Wert A", [2]))
     assert (result.input_tokens, result.output_tokens) == (100, 20)
 
 

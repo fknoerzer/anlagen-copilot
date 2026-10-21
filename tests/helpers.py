@@ -14,6 +14,7 @@ from typing import cast
 
 import httpx
 import pytest
+from anthropic import Anthropic
 from anthropic.types import ContentBlock, Message, StopReason, TextBlock, Usage
 from openai import AuthenticationError, BadRequestError, OpenAI
 from pypdf import PdfWriter
@@ -21,11 +22,14 @@ from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from anlagen_copilot.corpus import Corpus, CorpusDocument
 from anlagen_copilot.eval import EvalQuestion, ExpectedPage, ExpectedSource
+from anlagen_copilot.generate import GeneratedAnswer
 
 # For calls that never reach the client: `embed()` patched out, or an argument
 # rejected before it. None rather than a mock, which would absorb an unexpected
 # access in silence instead of naming the line that made it.
 NO_CLIENT = cast(OpenAI, None)
+# The same for the Anthropic calls: reranking, generation, fact check.
+NO_ANTHROPIC = cast(Anthropic, None)
 
 # The OpenAI errors take an httpx.Response, not a message: their `status_code`
 # and `response` are part of the public surface. One instance each is enough —
@@ -188,6 +192,16 @@ def make_expected_source(*pages: tuple[str, int]) -> ExpectedSource:
         any_of_pages=[
             ExpectedPage(document_id=document_id, page=page) for document_id, page in pages
         ]
+    )
+
+
+def make_answer(answered: bool, *statements: tuple[str, list[int]]) -> GeneratedAnswer:
+    """Builds a GeneratedAnswer from (text, cited ids) pairs."""
+    return GeneratedAnswer.model_validate(
+        {
+            "answered": answered,
+            "statements": [{"text": text, "sources": ids} for text, ids in statements],
+        }
     )
 
 
