@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     # Generation: Anthropic
     anthropic_api_key: SecretStr
     generation_model: str = "claude-sonnet-5"
+    judge_model: str = "claude-sonnet-5-5"
 
     # Azure: not before the Document Intelligence phase, hence optional
     azure_openai_endpoint: AnyHttpUrl | None = None
