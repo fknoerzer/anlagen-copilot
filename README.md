@@ -3,11 +3,11 @@
 [![CI](https://github.com/fknoerzer/anlagen-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/fknoerzer/anlagen-copilot/actions/workflows/ci.yml)
 [![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 
-> **In Arbeit:** Als Nächstes kommen die Prüfung der Antwortinhalte gegen die erwarteten Fakten und eine layoutbewusste Ingestion für Tabellen und Zeichnungen (siehe [Stand und Grenzen](#stand-und-grenzen)).
+> **In Arbeit:** Als Nächstes kommt eine layoutbewusste Ingestion mit Docling für Tabellen und Zeichnungen (siehe [Stand und Grenzen](#stand-und-grenzen)).
 
 Ein RAG-System für technische Dokumentation aus der Antriebstechnik: Es beantwortet Fragen zu Getrieben, Motoren, Frequenzumrichtern und Schmierstoffen aus echten Herstellerhandbüchern, mit Quellenangabe bis auf die Seite. Zu jeder Frage holt eine Vektorsuche 20 Handbuchseiten, ein Sprachmodell wählt daraus die 5 relevantesten (Reranking), ein zweites antwortet nur aus diesen 5.
 
-Das Projekt zeigt Retrieval über einen schwierigen deutschsprachigen Korpus, LLM-basiertes Reranking, Antworten, die jede Aussage auf eine Handbuchseite zurückführen oder ablehnen, und zwei Evaluationen, an denen sich jede Änderung messen lässt: Die erste prüft, ob die richtige Seite gefunden wird; die zweite bisher, ob die Antwort sie zitiert und unbeantwortbare Fragen ablehnt.
+Das Projekt zeigt Retrieval über einen schwierigen deutschsprachigen Korpus, LLM-basiertes Reranking, Antworten, die jede Aussage auf eine Handbuchseite zurückführen oder ablehnen, und zwei Evaluationen, an denen sich jede Änderung messen lässt: Die erste prüft, ob die richtige Seite gefunden wird; die zweite, ob die Antwort sie zitiert, unbeantwortbare Fragen ablehnt und die erwarteten Fakten nennt.
 
 ## Das Problem
 
@@ -54,7 +54,7 @@ Claude Sonnet 5 antwortet aus den 5 Seiten nach dem Reranking.
 - **Belege:** Liegt ein Beleg im Prompt, zitiert die Antwort ihn in 88–96 % der Fälle.
 - **Ablehnung:** Die 5 Fragen, die die Handbücher nicht beantworten, lehnt das Modell in allen Läufen ab; von 32 beantwortbaren lehnt es 4–5 fälschlich ab, bei dreien davon lag der Beleg nicht im Prompt.
 
-Ob die Aussagen inhaltlich stimmen, ist noch nicht gemessen: Der Abgleich mit den erwarteten Fakten im Eval-Set steht noch aus.
+- **Fakten:** Ein drittes Modell (Claude Sonnet 5.5) prüft jede Antwort gegen die erforderlichen Fakten ihrer Frage. Von 27 Antworten auf beantwortbare Fragen nennen 20 alle (74 %); zwei widersprechen einem Fakt, etwa indem sie die zulässige Ölsumpftemperatur als Umgebungstemperatur ausgeben. Das ist ein einzelner Lauf (Commit `ab6e3d5`) auf einem der fünf Antwortläufe (`026ce12`); wie stark das prüfende Modell streut, ist noch nicht gemessen.
 
 ### Kosten und Latenz
 
@@ -72,12 +72,13 @@ Die Gesamtspalte ist die Summe der beiden Spalten davor, kein eigener Messwert; 
 - [x] LLM-Reranking
 - [x] Retrieval-Evaluation mit protokollierten Läufen
 - [x] Antwortgenerierung mit Seitenzitaten
-- [ ] Evaluation der Antworten: Ablehnung und Belege gemessen; Prüfung der erwarteten Fakten folgt
-- [ ] Layoutbewusste Ingestion-Strategie für Tabellen und Zeichnungen (Docling oder Azure Document Intelligence, noch offen)
+- [x] Evaluation der Antworten: Ablehnung, Belege und erwartete Fakten
+- [ ] Prüfung, ob die zitierte Seite jede Aussage trägt
+- [ ] Layoutbewusste Ingestion-Strategie für Tabellen und Zeichnungen mit Docling
 
 ### Bekannte Grenzen
 
-Das Eval-Set ist klein: Eine Belegseite bewegt den Gesamtwert um knapp 3 Prozentpunkte, bei Multi-Hop um gut 12, und bei den fünf unbeantwortbaren Fragen zählt jede Frage 20 Prozentpunkte. Gemessen wird auf einem einzigen Korpus aus sechs Handbüchern zweier Hersteller. Die Textextraktion mit pypdf verliert die Spaltenstruktur von Tabellen, sodass sich Werte ihren Zeilen nicht mehr sicher zuordnen lassen. Die erwarteten Fakten der Antworten sind noch nicht geprüft.
+Das Eval-Set ist klein: Eine Belegseite bewegt den Gesamtwert um knapp 3 Prozentpunkte, bei Multi-Hop um gut 12, und bei den fünf unbeantwortbaren Fragen zählt jede Frage 20 Prozentpunkte. Gemessen wird auf einem einzigen Korpus aus sechs Handbüchern zweier Hersteller. Die Textextraktion mit pypdf verliert die Spaltenstruktur von Tabellen, sodass sich Werte ihren Zeilen nicht mehr sicher zuordnen lassen. Die Fakten bewertet ein Sprachmodell, nicht ein Mensch; an Hand geprüft sind bisher nur die Fälle, in denen es einen Fakt als fehlend oder widersprochen wertet.
 
 ## Architektur
 
@@ -131,7 +132,7 @@ flowchart LR
 - **Sprache:** Python 3.12+
 - **Package Manager:** [uv](https://docs.astral.sh/uv/)
 - **Vektordatenbank:** PostgreSQL 16 mit [pgvector](https://github.com/pgvector/pgvector)
-- **Modelle:** OpenAI für Embeddings, Anthropic Claude für Reranking und Generierung
+- **Modelle:** OpenAI für Embeddings, Anthropic Claude für Reranking, Generierung und Faktenprüfung
 - **PDF-Extraktion:** pypdf + ftfy
 - **Validierung & Konfiguration:** Pydantic, pydantic-settings
 
@@ -156,7 +157,7 @@ Diese Arbeitsteilung ist im Werkzeug verankert: Ein Hook sperrt Schreibzugriffe 
 
 ## Codequalität
 
-- **Über 130 automatisierte Tests** (`uv run pytest`), ohne echte API-Calls: Die OpenAI- und Anthropic-Clients werden durch Fakes ersetzt. Integrationstests gegen PostgreSQL laufen, wenn die Datenbank verfügbar ist.
+- **Über 160 automatisierte Tests** (`uv run pytest`), ohne echte API-Calls: Die OpenAI- und Anthropic-Clients werden durch Fakes ersetzt. Integrationstests gegen PostgreSQL laufen, wenn die Datenbank verfügbar ist.
 - **Ohne Keys und ohne Docker prüfbar:** `uv sync --dev && uv run pytest` läuft in etwa 16 Sekunden durch. Die Tests setzen eigene Platzhalter-Keys und lesen keine `.env`; ohne Datenbank werden nur die Integrationstests übersprungen.
 - **Statische Typprüfung** mit mypy, **Linting & Formatierung** mit Ruff, **Abhängigkeitsprüfung** mit deptry.
 - **Pre-commit-Hooks** für Ruff, mypy und deptry.
@@ -179,6 +180,7 @@ uv run anlagen-copilot   # Handbücher laden und indexieren
 
 uv run python -m anlagen_copilot.scripts.eval_retrieval --k 5 --candidates 20 --reranker claude-haiku-4-5-20251001
 uv run python -m anlagen_copilot.scripts.eval_generate --k 5 --candidates 20 --reranker claude-haiku-4-5-20251001
+uv run python -m anlagen_copilot.scripts.eval_facts   # prüft den neuesten Antwortlauf
 ```
 
 Die ausführliche Fassung mit Erklärungen zu jedem Schritt steht in [docs/setup.md](docs/setup.md); alle Optionen der Eval-Skripte zeigt `--help`.
