@@ -242,15 +242,18 @@ questions:
     required_facts:
       - "Stoßgrad III hat den höchsten Betriebsfaktor fB."
       - "Stoßgrad III bedeutet stark ungleichförmige Belastung (Massenbeschleunigungsfaktor ≤ 10)."
-      - "Begründung: Der Betriebsfaktor berücksichtigt die Auswirkung der Arbeitsmaschine auf das Getriebe; je ungleichförmiger die Belastung, desto höher der Betriebsfaktor."
+      - "Begründung: Je ungleichförmiger die Belastung, desto höher der Betriebsfaktor."
     supplementary_facts:
+      - "Der Betriebsfaktor berücksichtigt die Auswirkung der Arbeitsmaschine auf das Getriebe."
       - "Stoßgrad I bedeutet gleichförmige Belastung (Massenbeschleunigungsfaktor ≤ 0,2)."
       - "Stoßgrad II bedeutet ungleichförmige Belastung (Massenbeschleunigungsfaktor ≤ 3)."
     notes: >-
       Härtefall: Kurvenvergleich in einem Kennliniendiagramm mit drei
       überlagerten Kurven, testet ob das System die relative Lage der Kurven
       zueinander korrekt erfasst, nicht nur einzelne Achsenwerte. Kein
-      Schneckengetriebe: dafür nennt S. 52 zusätzliche Betriebsfaktoren.
+      Schneckengetriebe: dafür nennt S. 52 zusätzliche Betriebsfaktoren. Die
+      Arbeitsmaschine ist nur Zusatzfakt: Als Pflicht ließ sie eine richtige
+      Begründung am Wortlaut durchfallen.
 
   - id: q-013
     category: diagram
@@ -639,10 +642,11 @@ questions:
           - document_id: sew-motoren-drn
             page: 23
     required_facts:
-      - "EFF1 ist eine Wirkungsgradklasse nach der Vereinbarung des CEMEP (Klassen EFF3, EFF2, EFF1; EFF1 bezeichnet hoch effiziente Motoren)."
+      - "EFF1 ist eine Wirkungsgradklasse nach der Vereinbarung des CEMEP."
       - "IE3 ist eine Energie-Effizienzklasse nach IEC 60034-30-1."
       - "Es sind zwei verschiedene Klassifizierungen, die Klassen lassen sich nicht direkt gleichsetzen."
     supplementary_facts:
+      - "Die CEMEP-Klassen sind EFF3, EFF2 und EFF1; EFF1 bezeichnet hoch effiziente Motoren."
       - "DRN-Motoren sind Energiesparmotoren der Klasse Premium-Efficiency IE3; DR2S-Motoren entsprechen IE1, DRU-Motoren IE4."
       - "DTE/DVE-Motoren der Größen 90S bis 280M werden als Energiesparmotoren bezeichnet."
     notes: >-
@@ -650,7 +654,9 @@ questions:
       verschiedenen Dokumenten. Die Klassenzeichen auf S. 16 (EFF1, EFF2)
       sind Bilder, pypdf liefert sie nicht. v4: Ersetzt eine Frage nach
       "Katalog (Kapitel 2.3)" und "Beispiel-Typenschild"; Fakten ohne Beleg
-      im Korpus (EFF durch IE ersetzt, Alter des Katalogs) entfernt.
+      im Korpus (EFF durch IE ersetzt, Alter des Katalogs) entfernt. Die
+      Bedeutung von EFF1 ist nur Zusatzfakt: Für die Frage reicht, dass es
+      zwei Systeme sind.
 
   - id: q-035
     category: multi-hop
