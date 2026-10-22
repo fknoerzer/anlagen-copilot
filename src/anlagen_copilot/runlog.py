@@ -1,8 +1,9 @@
-"""Recording eval runs: which code a run measured, and one JSON line per run.
+"""Recording and reading eval runs: which code a run measured, and one JSON line per run.
 
-Shared by the retrieval and the generation evaluation. Both append to their
-own file under `data/`, both mark a run by the commit it ran on, and both
-format their timings the same way in the summary.
+Shared by the evaluations. Each appends to its own file under `data/`, each
+marks a run by the commit it ran on, and each formats its timings the same way
+in the summary. Reading the runs back lives here too, so one module knows both
+directions of the format.
 """
 
 import logging
@@ -10,7 +11,7 @@ import statistics
 import subprocess
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from anlagen_copilot.paths import PROJECT_ROOT
 
@@ -79,3 +80,34 @@ def median_seconds(values: list[float]) -> str:
     returning a value, and a run without reranking has no rerank timings.
     """
     return f"{statistics.median(values):.2f}s" if values else "—"
+
+
+def load_runs[RunT: BaseModel](path: Path, model: type[RunT]) -> list[RunT]:
+    """Read every run from `path` back into `model`, oldest first.
+
+    The model comes in as an argument, as `append_run()` takes any model: this
+    module reads and writes the format, and the evaluations own the shape of
+    their runs. Importing a run model here would also tie the record to a
+    script that imports this module, in a circle.
+
+    Blank lines are skipped, a final newline among them. Every other line must
+    fit `model`; one that does not ends the read rather than being dropped, since
+    a run left out would make the series look shorter than it is.
+
+    Raises:
+        FileNotFoundError: When `path` does not exist. An empty list would look
+            like a record without runs and hide a mistyped path.
+        pydantic.ValidationError: When a line does not fit `model`. A note on
+            the error names the file and the line.
+    """
+    runs: list[RunT] = []
+    with path.open(encoding="utf-8") as handle:
+        for number, line in enumerate(handle, start=1):
+            if not line.strip():
+                continue
+            try:
+                runs.append(model.model_validate_json(line))
+            except ValidationError as e:
+                e.add_note(f"in {path}, line {number}")
+                raise
+    return runs

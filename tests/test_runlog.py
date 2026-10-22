@@ -2,9 +2,9 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
-from anlagen_copilot.runlog import append_run, current_commit
+from anlagen_copilot.runlog import append_run, current_commit, load_runs
 
 
 class _Run(BaseModel):
@@ -120,3 +120,36 @@ def test_append_run_creates_a_missing_folder(tmp_path: Path) -> None:
     append_run(_Run(commit="abc1234"), path)
 
     assert path.is_file()
+
+
+def test_load_runs_reads_back_what_append_run_wrote(tmp_path: Path) -> None:
+    path = tmp_path / "runs.jsonl"
+    runs = [_Run(commit="aaa1111"), _Run(commit="bbb2222", note="mödél")]
+    for run in runs:
+        append_run(run, path)
+
+    assert load_runs(path, _Run) == runs
+
+
+def test_load_runs_skips_blank_lines(tmp_path: Path) -> None:
+    path = tmp_path / "runs.jsonl"
+    path.write_text('\n{"commit": "aaa1111"}\n\n', encoding="utf-8")
+
+    assert load_runs(path, _Run) == [_Run(commit="aaa1111")]
+
+
+def test_load_runs_names_the_line_that_does_not_fit(tmp_path: Path) -> None:
+    """A broken run ends the read: dropped, it would shorten the series unnoticed."""
+    path = tmp_path / "runs.jsonl"
+    path.write_text('{"commit": "aaa1111"}\n{"note": "no commit"}\n', encoding="utf-8")
+
+    with pytest.raises(ValidationError, match="commit") as raised:
+        load_runs(path, _Run)
+
+    assert raised.value.__notes__ == [f"in {path}, line 2"]
+
+
+def test_load_runs_rejects_a_missing_file(tmp_path: Path) -> None:
+    """An empty list would look like a record without runs and hide a mistyped path."""
+    with pytest.raises(FileNotFoundError):
+        load_runs(tmp_path / "missing.jsonl", _Run)
