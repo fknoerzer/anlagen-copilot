@@ -78,7 +78,7 @@ Die Gesamtspalte ist die Summe der beiden Spalten davor, kein eigener Messwert; 
 
 ### Bekannte Grenzen
 
-Das Eval-Set ist klein: Eine Belegseite bewegt den Gesamtwert um knapp 3 Prozentpunkte, bei Multi-Hop um gut 12, und bei den fünf unbeantwortbaren Fragen zählt jede Frage 20 Prozentpunkte. Gemessen wird auf einem einzigen Korpus aus sechs Handbüchern zweier Hersteller. Die Textextraktion mit pypdf verliert die Spaltenstruktur von Tabellen, sodass sich Werte ihren Zeilen nicht mehr sicher zuordnen lassen. Die Fakten bewertet ein Sprachmodell, nicht ein Mensch; an Hand geprüft sind bisher nur die Fälle, in denen es einen Fakt als fehlend oder widersprochen wertet.
+Das Eval-Set ist klein: Eine Belegseite bewegt den Gesamtwert um knapp 3 Prozentpunkte, bei Multi-Hop um gut 12, und bei den fünf unbeantwortbaren Fragen zählt jede Frage 20 Prozentpunkte. Gemessen wird auf einem einzigen Korpus aus sechs Handbüchern zweier Hersteller. Die Textextraktion mit pypdf verliert die Spaltenstruktur von Tabellen, sodass sich Werte ihren Zeilen nicht mehr sicher zuordnen lassen. Die Fakten bewertet ein Sprachmodell; seine 55 Urteile im bisher einzigen Lauf sind von Hand nachgeprüft. Aussagen, die über die erforderlichen Fakten hinausgehen, prüft es nicht: Ist eine davon falsch, gilt die Antwort trotzdem als vollständig.
 
 ## Architektur
 
