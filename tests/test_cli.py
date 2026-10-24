@@ -1,4 +1,6 @@
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, Mock
 
@@ -33,7 +35,39 @@ def _patch_main(
     monkeypatch.setattr(cli, "check_embedding_config", Mock())
     monkeypatch.setattr(cli, "get_connection", MagicMock())
     monkeypatch.setattr(cli, "download_document", Mock())
+    monkeypatch.setattr(cli, "extract_document", Mock(return_value=[]))
     monkeypatch.setattr(cli, "ingest_document", ingest)
+
+
+def test_main_extracts_before_the_transaction_opens(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Docling takes minutes per manual; the transaction must not stand open through them."""
+    events: list[str] = []
+
+    @contextmanager
+    def transaction() -> Iterator[None]:
+        events.append("begin")
+        yield
+        events.append("commit")
+
+    def extract(*args: object) -> list[tuple[int, str]]:
+        events.append("extract")
+        return []
+
+    def ingest(*args: object) -> int:
+        events.append("ingest")
+        return 0
+
+    _patch_main(monkeypatch, tmp_path, [make_document(id="doc-a")], Mock(side_effect=ingest))
+    monkeypatch.setattr(cli, "extract_document", Mock(side_effect=extract))
+    connection = MagicMock()
+    connection.__enter__.return_value.transaction = transaction
+    monkeypatch.setattr(cli, "get_connection", Mock(return_value=connection))
+
+    main()
+
+    assert events == ["extract", "begin", "ingest", "commit"]
 
 
 def test_main_finishes_without_exiting_when_every_page_lands(

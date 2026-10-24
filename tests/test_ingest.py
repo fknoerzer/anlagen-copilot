@@ -1,8 +1,11 @@
 import logging
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
 import pytest
+from docling.datamodel.base_models import ConversionStatus
+from docling.exceptions import ConversionError
 from helpers import (
     NO_CLIENT,
     REJECTED,
@@ -10,15 +13,21 @@ from helpers import (
     fake_embed,
     make_document,
     make_pdf,
-    make_text_pdf,
     was_logged,
 )
 from openai import AuthenticationError
 from pgvector import Vector
 
 from anlagen_copilot import ingest
+from anlagen_copilot.corpus import load_corpus
 from anlagen_copilot.errors import DocumentError
-from anlagen_copilot.ingest import extract_pages, ingest_document, strip_boilerplate
+from anlagen_copilot.ingest import (
+    extract_document,
+    extract_pages,
+    extract_pages_docling,
+    ingest_document,
+    strip_boilerplate,
+)
 
 
 def _verbs(conn: MagicMock) -> list[str]:
@@ -29,6 +38,82 @@ def _verbs(conn: MagicMock) -> list[str]:
 def _params(conn: MagicMock) -> list[tuple[object, ...]]:
     """The parameter tuple of each statement, in the same order."""
     return [call.args[1] for call in conn.execute.call_args_list]
+
+
+@pytest.mark.docling
+def test_extract_pages_docling_keeps_original_page_numbers_in_an_excerpt(tmp_path: Path) -> None:
+    """Page 2 stays 2, not renumbered to 1.
+
+    `chunks.page` is the page an answer cites; renumbering would send every
+    reader of an excerpted manual astray with nothing failing on the way.
+    """
+    make_pdf(tmp_path / "doc.pdf", pages=4)
+    doc = make_document(filename="doc.pdf", excerpt_pages=(2, 4))
+
+    pages = extract_pages_docling(doc, tmp_path)
+
+    assert pages == [(2, ""), (3, ""), (4, "")]
+
+
+@pytest.mark.docling
+def test_extract_pages_docling_keeps_the_text_of_a_drawing() -> None:
+    """The nameplate on p. 22 is a vector drawing; its text must reach the chunk.
+
+    Without `traverse_pictures` the Markdown export drops it for an image
+    placeholder, and nothing fails. The PDF is downloaded, not committed, so the
+    test skips where the corpus has not been fetched.
+    """
+    corpus = load_corpus()
+    document = next(d for d in corpus.documents if d.id == "sew-getriebe-ba")
+    if not (corpus.corpus.raw_dir / document.filename).is_file():
+        pytest.skip("corpus not downloaded")
+
+    pages = extract_pages_docling(
+        document.model_copy(update={"excerpt_pages": (22, 22)}), corpus.corpus.raw_dir
+    )
+
+    [(page, text)] = pages
+    assert page == 22
+    assert "Th.Kl. 130(B)" in text
+    assert "<!-- image -->" not in text
+
+
+class _FakeConverter:
+    """Stands in for Docling's converter: returns a prepared result or raises."""
+
+    def __init__(self, result: object = None, error: Exception | None = None) -> None:
+        self._result = result
+        self._error = error
+
+    def convert(self, source: Path, page_range: tuple[int, int]) -> object:
+        if self._error is not None:
+            raise self._error
+        return self._result
+
+
+def test_extract_pages_docling_rejects_a_partial_conversion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR 005: Docling returns a partial result without raising; pages it lost would be skipped."""
+    partial = SimpleNamespace(
+        status=ConversionStatus.PARTIAL_SUCCESS,
+        errors=[SimpleNamespace(error_message="page 3 failed")],
+    )
+    monkeypatch.setattr(ingest, "_converter", lambda: _FakeConverter(result=partial))
+
+    with pytest.raises(DocumentError, match="partial_success: page 3 failed"):
+        extract_pages_docling(make_document(filename="doc.pdf"), tmp_path)
+
+
+def test_extract_pages_docling_turns_a_conversion_error_into_a_document_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The caller handles one error type for both strategies, as for pypdf."""
+    failing = _FakeConverter(error=ConversionError("unreadable"))
+    monkeypatch.setattr(ingest, "_converter", lambda: failing)
+
+    with pytest.raises(DocumentError, match="PDF not convertible"):
+        extract_pages_docling(make_document(filename="doc.pdf"), tmp_path)
 
 
 def test_extract_pages_keeps_original_page_numbers_in_an_excerpt(tmp_path: Path) -> None:
@@ -306,21 +391,20 @@ def test_strip_boilerplate_leaves_a_short_document_alone() -> None:
 
 
 def test_ingest_document_writes_one_row_per_usable_page(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """Delete what was there, insert what is there now.
 
-    Only `embed()` is patched — the one collaborator that cannot run here. The
-    page numbers therefore come from real extraction, and page 1, which has no
-    text, must reach no INSERT: the usable/skipped split, asserted by absence.
+    Only `embed()` is patched — the one collaborator that cannot run here. Page
+    1, which has no text, must reach no INSERT: the usable/skipped split,
+    asserted by absence.
     """
     monkeypatch.setattr(ingest, "embed", fake_embed)
-    make_text_pdf(tmp_path / "doc.pdf", [None, "zweite Seite", "dritte Seite"])
-    doc = make_document(id="test-doc", filename="doc.pdf")
+    pages = [(1, ""), (2, "zweite Seite"), (3, "dritte Seite")]
     conn = MagicMock()
 
     with caplog.at_level(logging.WARNING):
-        ingest_document(NO_CLIENT, doc, conn, tmp_path)
+        ingest_document(NO_CLIENT, make_document(id="test-doc"), conn, pages)
 
     assert _verbs(conn) == ["DELETE", "INSERT", "INSERT"]
     assert _params(conn) == [
@@ -333,10 +417,10 @@ def test_ingest_document_writes_one_row_per_usable_page(
     assert was_logged(caplog, logging.WARNING, "skipped 1 of 3 pages"), caplog.text
 
 
-def test_ingest_document_writes_pages_without_their_running_header(
+def test_extract_document_returns_pages_without_their_running_header(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """What reaches the INSERT is the page without its header.
+    """What reaches `ingest_document()` is the page without its header.
 
     Ten pages, because below `_BOILERPLATE_MIN_PAGES` stripping leaves a document
     alone — which is why no other test here would notice the call going missing.
@@ -359,36 +443,43 @@ def test_ingest_document_writes_pages_without_their_running_header(
         for n, word in enumerate(words, start=1)
     ]
     monkeypatch.setattr(ingest, "extract_pages", Mock(return_value=pages))
-    monkeypatch.setattr(ingest, "embed", fake_embed)
-    conn = MagicMock()
 
-    ingest_document(NO_CLIENT, make_document(id="test-doc"), conn, tmp_path)
+    extracted = extract_document(make_document(), tmp_path)
 
-    # The first statement is the DELETE; index 3 of each INSERT is `content`.
-    assert [params[3] for params in _params(conn)[1:]] == words
+    assert [text for _, text in extracted] == words
+
+
+def test_extract_document_reads_with_docling_under_the_advanced_strategy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        ingest, "get_settings", Mock(return_value=SimpleNamespace(ingest_strategy="advanced"))
+    )
+    monkeypatch.setattr(ingest, "extract_pages_docling", Mock(return_value=[(1, "Seite A")]))
+    monkeypatch.setattr(ingest, "extract_pages", Mock(side_effect=AssertionError("pypdf")))
+
+    assert extract_document(make_document(), tmp_path) == [(1, "Seite A")]
 
 
 def test_ingest_document_aborts_when_no_page_carries_text(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A scan-only manual is dropped before any statement runs.
 
-    `make_pdf()` writes pages that extract to `""`, so the guard ahead of the
-    `DELETE` hits. The embedding mock raises if it is reached; it is not.
+    Its pages extract to `""`, so the guard ahead of the `DELETE` hits. The
+    embedding mock raises if it is reached; it is not.
     """
     monkeypatch.setattr(ingest, "embed", Mock(side_effect=AssertionError("must not embed")))
-    make_pdf(tmp_path / "doc.pdf", pages=2)
-    doc = make_document(id="test-doc", filename="doc.pdf")
     conn = MagicMock()
 
     with pytest.raises(DocumentError, match="no page with extractable text"):
-        ingest_document(NO_CLIENT, doc, conn, tmp_path)
+        ingest_document(NO_CLIENT, make_document(id="test-doc"), conn, [(1, ""), (2, "")])
 
     assert _verbs(conn) == []
 
 
 def test_ingest_document_aborts_when_every_page_is_rejected(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A document that keeps no page fails rather than passing as an empty success.
 
@@ -397,18 +488,18 @@ def test_ingest_document_aborts_when_every_page_is_rejected(
     and the mock sees it — taking it back is the caller's transaction.
     """
     monkeypatch.setattr(ingest, "embed", Mock(side_effect=REJECTED))
-    make_text_pdf(tmp_path / "doc.pdf", ["erste Seite", "zweite Seite"])
-    doc = make_document(id="test-doc", filename="doc.pdf")
     conn = MagicMock()
 
     with pytest.raises(DocumentError, match="all 2 pages rejected by the embedding model"):
-        ingest_document(NO_CLIENT, doc, conn, tmp_path)
+        ingest_document(
+            NO_CLIENT, make_document(id="test-doc"), conn, [(1, "erste Seite"), (2, "zweite Seite")]
+        )
 
     assert _verbs(conn) == ["DELETE"]
 
 
 def test_ingest_document_skips_a_rejected_page_and_keeps_the_rest(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """One page lost, not the document — the claim the `continue` makes.
 
@@ -416,12 +507,11 @@ def test_ingest_document_skips_a_rejected_page_and_keeps_the_rest(
     look the same from out here, so `break` would pass just as well.
     """
     monkeypatch.setattr(ingest, "embed", fake_embed)
-    make_text_pdf(tmp_path / "doc.pdf", [None, "zu lang", "zweite Seite"])
-    doc = make_document(id="test-doc", filename="doc.pdf")
+    pages = [(1, ""), (2, "zu lang"), (3, "zweite Seite")]
     conn = MagicMock()
 
     with caplog.at_level(logging.WARNING):
-        ingest_document(NO_CLIENT, doc, conn, tmp_path)
+        ingest_document(NO_CLIENT, make_document(id="test-doc"), conn, pages)
 
     assert _verbs(conn) == ["DELETE", "INSERT"]
     assert _params(conn) == [
@@ -436,7 +526,7 @@ def test_ingest_document_skips_a_rejected_page_and_keeps_the_rest(
 
 
 def test_ingest_document_lets_a_failure_of_the_whole_run_through(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The counter-check to the rejection tests above: only `BadRequestError` is caught.
 
@@ -449,12 +539,12 @@ def test_ingest_document_lets_a_failure_of_the_whole_run_through(
     they would all still pass. This is the only test that would not.
     """
     monkeypatch.setattr(ingest, "embed", Mock(side_effect=UNAUTHORIZED))
-    make_text_pdf(tmp_path / "doc.pdf", ["erste Seite", "zweite Seite"])
-    doc = make_document(id="test-doc", filename="doc.pdf")
     conn = MagicMock()
 
     with pytest.raises(AuthenticationError):
-        ingest_document(NO_CLIENT, doc, conn, tmp_path)
+        ingest_document(
+            NO_CLIENT, make_document(id="test-doc"), conn, [(1, "erste Seite"), (2, "zweite Seite")]
+        )
 
     # The DELETE is already out when the exception leaves, and no INSERT
     # follows it. Undoing that is the caller's transaction in `cli.main()`,

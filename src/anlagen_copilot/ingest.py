@@ -1,16 +1,22 @@
 """PDF in, embedded chunks in the `chunks` table out.
 
 The write side of the pipeline, the counterpart to `retrieval.py`.
-`extract_pages()` reads a document, `ingest_document()` embeds and stores it —
-one chunk per page under the naive strategy.
+`extract_document()` reads a document, with pypdf or Docling by strategy, and
+`ingest_document()` embeds and stores it, one chunk per page.
 """
 
 import logging
 import re
 from collections import Counter
+from functools import cache
 from pathlib import Path
 
 import ftfy
+from docling.datamodel.base_models import ConversionStatus, InputFormat
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.datamodel.settings import DEFAULT_PAGE_RANGE
+from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling.exceptions import ConversionError
 from openai import BadRequestError, OpenAI
 from pgvector import Vector
 from psycopg import Connection
@@ -46,6 +52,87 @@ _BOILERPLATE_MIN_RATIO = 0.85
 # Below ten pages, "85 % of them" means eight or nine pages, a count a single
 # chapter title reaches by chance. The smallest document in the corpus has 34.
 _BOILERPLATE_MIN_PAGES = 10
+
+
+@cache
+def _converter() -> DocumentConverter:
+    """Build the Docling converter once per process and hand out the same one.
+
+    The point is one place for the pipeline options, and one seam the tests can
+    replace. That the models then load once per run instead of once per
+    document saves little: about eight seconds each, some fifty for the six
+    manuals, against an hour or more of conversion.
+
+    OCR stays on, although it is what makes Docling slow: on two probed pages a
+    conversion took 6-8 s with it and 1.4-2.8 s without. The text layer misses
+    what a page shows only as an image, such as the EFF class marks in the
+    project planning catalogue (q-034), and OCR reads them. Its noise is the
+    price: a QR code came back as a stray character.
+    """
+    options = PdfPipelineOptions(do_ocr=True)
+    return DocumentConverter(
+        format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=options)}
+    )
+
+
+def extract_pages_docling(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, str]]:
+    """Read a PDF page by page with Docling, returning (page number, Markdown) for each page.
+
+    The excerpt goes to `convert()` as `page_range` instead of being cut out
+    afterwards. Unlike pypdf, Docling runs its layout and table models on every
+    page it is given before returning, so a slice afterwards would still pay
+    for the whole manual. The keys of `doc.pages` are the page numbers of the
+    original PDF, so they become `chunks.page` as they are, without counting.
+
+    `traverse_pictures=True` keeps the text Docling finds inside a picture. The
+    nameplates and exploded drawings in the SEW manuals are vector graphics
+    with real text; without the option the Markdown export replaces each of them
+    with an image placeholder and drops that text without an error.
+
+    The other export options keep Markdown syntax out of what gets embedded:
+    no image placeholder, since the picture's text is now in its place; no HTML
+    escaping, which turns "<" into "&lt;"; no escaped underscores; and tables
+    without the padding that aligns their columns, which only costs tokens. The
+    placeholder for an undecoded formula stays: it tells the answering model
+    that something is missing where the page announces a formula.
+
+    A partial conversion fails like a failed one. `convert()` raises only for a
+    failure and returns `PARTIAL_SUCCESS` as a normal result, so pages it could
+    not read would come back empty and be skipped as pages without text.
+
+    Raises:
+        DocumentError: When Docling cannot convert the file, or converts only
+            part of it.
+    """
+    path: Path = raw_dir / document.filename
+
+    try:
+        result = _converter().convert(path, page_range=document.excerpt_pages or DEFAULT_PAGE_RANGE)
+    except ConversionError as exc:
+        raise DocumentError(f"{document.id}: PDF not convertible") from exc
+
+    if result.status != ConversionStatus.SUCCESS:
+        errors = "; ".join(error.error_message for error in result.errors)
+        raise DocumentError(f"{document.id}: conversion ended with {result.status.value}: {errors}")
+
+    doc = result.document
+    return [
+        (
+            page_number,
+            ftfy.fix_text(
+                doc.export_to_markdown(
+                    page_no=page_number,
+                    traverse_pictures=True,
+                    image_placeholder="",
+                    escape_html=False,
+                    escape_underscores=False,
+                    compact_tables=True,
+                ),
+                config=_TEXT_FIXES,
+            ),
+        )
+        for page_number in sorted(doc.pages)
+    ]
 
 
 def extract_pages(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, str]]:
@@ -170,25 +257,45 @@ def strip_boilerplate(pages: list[tuple[int, str]]) -> list[tuple[int, str]]:
     return stripped
 
 
+def extract_document(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, str]]:
+    """Read a document with the extractor of the configured strategy and strip its boilerplate.
+
+    The read half of the ingestion, kept apart from `ingest_document()` so the
+    caller can run it outside the database transaction: Docling takes minutes
+    per manual, and nothing it does touches the database.
+
+    Raises:
+        DocumentError: From `extract_pages()` or `extract_pages_docling()`, when
+            the PDF cannot be read, or Docling converts only part of it.
+    """
+    extract = (
+        extract_pages_docling if get_settings().ingest_strategy == "advanced" else extract_pages
+    )
+    return strip_boilerplate(extract(document, raw_dir))
+
+
 def ingest_document(
     client: OpenAI,
     document: CorpusDocument,
     conn: Connection,
-    raw_dir: Path,
+    pages: list[tuple[int, str]],
 ) -> int:
-    """Embed one document page by page and write the chunks to the database.
+    """Embed the extracted pages of one document and write them to the database as chunks.
 
-    One page is one chunk. That is a deliberate baseline for the naive
-    strategy, not an oversight: the page is the unit the eval set cites and the
-    unit an answer can send a reader to. Splitting along semantic boundaries is
-    the job of the advanced strategy, and the `UNIQUE (strategy, document_id,
-    page)` constraint would have to give way with it.
+    One page is one chunk, under both strategies for now. That is a deliberate
+    baseline, not an oversight: the page is the unit the eval set cites and the
+    unit an answer can send a reader to. The advanced strategy changes only the
+    extraction so far, so that its effect can be measured alone; splitting
+    pages would need the `UNIQUE (strategy, document_id, page)` constraint to
+    give way.
 
     Two kinds of page never reach the index: pages without extractable text
-    (scans, pure graphics) and pages the embedding model rejects — practically
-    always the token limit on a dense table page. Either is a warning while
-    something survives and a `DocumentError` once nothing does, with a message
-    per cause, since an OCR pass and a smaller chunk are different repairs.
+    (scans and pure graphics under pypdf, which has no OCR; under Docling,
+    whatever its OCR cannot read either) and pages the embedding model rejects
+    — practically always the token limit on a dense table page. Either is a
+    warning while something survives and a `DocumentError` once nothing does,
+    with a message per cause, since a better extraction and a smaller chunk are
+    different repairs.
 
     A rejection may be read as a statement about that one page because
     `check_embedding_config()` has already ruled out the alternative: a 400 that
@@ -216,12 +323,9 @@ def ingest_document(
         strategy. What the loss means for the run is `main()`'s call.
 
     Raises:
-        DocumentError: From `extract_pages()`, when the PDF is unreadable or
-            will not open with an empty password; from here, when no page has
-            extractable text or every page is rejected. Everything else
-            propagates unwrapped and ends the run.
+        DocumentError: When no page has extractable text or every page is
+            rejected. Everything else propagates unwrapped and ends the run.
     """
-    pages = strip_boilerplate(extract_pages(document, raw_dir))
     usable = [(page_number, text) for page_number, text in pages if text.strip()]
     skipped = len(pages) - len(usable)
     if skipped:

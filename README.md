@@ -3,7 +3,7 @@
 [![CI](https://github.com/fknoerzer/anlagen-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/fknoerzer/anlagen-copilot/actions/workflows/ci.yml)
 [![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 
-> **In Arbeit:** Als Nächstes kommt eine layoutbewusste Ingestion mit Docling für Tabellen und Zeichnungen (siehe [Stand und Grenzen](#stand-und-grenzen)).
+> **In Arbeit:** Eine layoutbewusste Ingestion mit Docling für Tabellen und Zeichnungen ist eingebaut; ihre Messung gegen das Eval-Set steht noch aus (siehe [Stand und Grenzen](#stand-und-grenzen)).
 
 Ein RAG-System für technische Dokumentation aus der Antriebstechnik: Es beantwortet Fragen zu Getrieben, Motoren, Frequenzumrichtern und Schmierstoffen aus echten Herstellerhandbüchern, mit Quellenangabe bis auf die Seite. Zu jeder Frage holt eine Vektorsuche 20 Handbuchseiten, ein Sprachmodell wählt daraus die 5 relevantesten (Reranking), ein zweites antwortet nur aus diesen 5.
 
@@ -74,7 +74,7 @@ Die Gesamtspalte ist die Summe der beiden Spalten davor, kein eigener Messwert; 
 - [x] Antwortgenerierung mit Seitenzitaten
 - [x] Evaluation der Antworten: Ablehnung, Belege und erwartete Fakten
 - [ ] Prüfung, ob die zitierte Seite jede Aussage trägt
-- [ ] Layoutbewusste Ingestion-Strategie für Tabellen und Zeichnungen mit Docling
+- [ ] Layoutbewusste Ingestion-Strategie für Tabellen und Zeichnungen mit Docling: eingebaut, noch nicht gemessen
 
 ### Bekannte Grenzen
 
@@ -95,7 +95,7 @@ flowchart LR
 
 Die Handbücher werden anhand des Manifests `data/raw/corpus.yaml` von den Herstellerseiten geladen.
 
-- **Extraktion:** pypdf liest Seite für Seite; ftfy repariert Zeichen, die bei unbekanntem Font-Encoding als unsichtbare Steuerzeichen ankommen.
+- **Extraktion:** pypdf liest Seite für Seite; ftfy repariert Zeichen, die bei unbekanntem Font-Encoding als unsichtbare Steuerzeichen ankommen. Die Strategie `advanced` liest stattdessen mit Docling, das Tabellen in ihren Spalten und den Text aus Zeichnungen erhält.
 - **Bereinigung:** Zeilen, die auf mindestens 85 % der Seiten eines Dokuments wiederkehren (Kopf- und Fußzeilen), werden entfernt, damit sie nicht jede Seite gleich aussehen lassen.
 - **Chunking:** Eine Seite = ein Chunk, mit der Seitennummer des Original-PDFs, damit jede Quelle seitengenau zitierbar ist. Seiten ohne Text (Scans, Grafiken) fallen weg. ([ADR 001](docs/adr/001-seite-als-chunk.md))
 - **Embedding:** `text-embedding-3-large` mit 1536 Dimensionen; Fragen laufen durch dieselbe Funktion und landen so im selben Vektorraum. ([ADR 003](docs/adr/003-embedding-dimensionen.md))
@@ -133,7 +133,7 @@ flowchart LR
 - **Package Manager:** [uv](https://docs.astral.sh/uv/)
 - **Vektordatenbank:** PostgreSQL 16 mit [pgvector](https://github.com/pgvector/pgvector)
 - **Modelle:** OpenAI für Embeddings, Anthropic Claude für Reranking, Generierung und Faktenprüfung
-- **PDF-Extraktion:** pypdf + ftfy
+- **PDF-Extraktion:** pypdf + ftfy, für die Strategie `advanced` [Docling](https://github.com/docling-project/docling)
 - **Validierung & Konfiguration:** Pydantic, pydantic-settings
 
 ## Designentscheidungen
@@ -158,7 +158,7 @@ Diese Arbeitsteilung ist im Werkzeug verankert: Ein Hook sperrt Schreibzugriffe 
 ## Codequalität
 
 - **Über 160 automatisierte Tests** (`uv run pytest`), ohne echte API-Calls: Die OpenAI- und Anthropic-Clients werden durch Fakes ersetzt. Integrationstests gegen PostgreSQL laufen, wenn die Datenbank verfügbar ist.
-- **Ohne Keys und ohne Docker prüfbar:** `uv sync --dev && uv run pytest` läuft in etwa 16 Sekunden durch. Die Tests setzen eigene Platzhalter-Keys und lesen keine `.env`; ohne Datenbank werden nur die Integrationstests übersprungen.
+- **Ohne Keys und ohne Docker prüfbar:** `uv sync --dev && uv run pytest` läuft in etwa 25 Sekunden durch. Die Tests setzen eigene Platzhalter-Keys und lesen keine `.env`; ohne Datenbank werden nur die Integrationstests übersprungen. Die Tests, die Docling-Modelle laden, laufen nur mit `-m docling`.
 - **Statische Typprüfung** mit mypy, **Linting & Formatierung** mit Ruff, **Abhängigkeitsprüfung** mit deptry.
 - **Pre-commit-Hooks** für Ruff, mypy und deptry.
 - **CI-Pipeline** (GitHub Actions) mit pgvector-Service-Container: Ruff, mypy, deptry und die komplette Testsuite inklusive Datenbanktests bei jedem Push.

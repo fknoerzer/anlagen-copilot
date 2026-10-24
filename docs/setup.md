@@ -39,6 +39,14 @@ Die PDFs liegen aus urheberrechtlichen Gründen nicht im Repository. Sie werden 
 
 Die 6 Handbücher haben zusammen 1.810 Seiten. Davon werden 1.334 Seiten eingelesen, 1.322 mit extrahierbarem Text landen im Index: Aus dem 572-seitigen Siemens-Listenhandbuch wird nur Kapitel 4 „Störungen und Warnungen" (S. 453–548) eingelesen, weil die Fragen der Instandhaltung dort ansetzen. Die übrigen Kapitel (rund 310 Seiten Parameterlisten, 135 Seiten Funktionspläne und der Anhang) sind bewusst ausgelassen.
 
+Die Strategie `advanced` liest dieselben Seiten mit Docling statt pypdf und schreibt sie neben die `naive`-Chunks in dieselbe Tabelle ([ADR 002](adr/002-strategie-als-spalte.md)):
+
+```bash
+INGEST_STRATEGY=advanced uv run anlagen-copilot
+```
+
+Unter PowerShell setzt man die Variable vorher mit `$env:INGEST_STRATEGY = "advanced"`, oder dauerhaft in der `.env`. Docling lädt beim ersten Lauf seine Modelle herunter (rund 570 MB) und rechnet auf der CPU 1,5 bis 8 Sekunden je Seite, mit OCR eher am oberen Ende; für alle 1.334 Seiten ist mit ein bis zwei Stunden zu rechnen.
+
 ## 5. Retrieval evaluieren
 
 ```bash
@@ -71,4 +79,5 @@ uv run ruff check .
 uv run ruff format .
 uv run mypy src
 uv run pytest --cov=src
+uv run pytest -m docling   # Docling-Tests, laden beim ersten Mal die Modelle herunter
 ```

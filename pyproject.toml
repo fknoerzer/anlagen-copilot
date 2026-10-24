@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=1.6.0",
+    "docling>=2.141.0",
     "fastapi>=0.140.0",
     "ftfy>=6.3.1",
     "httpx>=0.28.1",
@@ -56,8 +57,15 @@ convention = "google"
 # --strict-markers turns a mistyped @pytest.mark.integraton from a warning into
 # an error. It does not cover the command line: -m integraton silently
 # deselects everything, -m "not integraton" silently runs everything.
-addopts = "--strict-markers"
-markers = ["integration: needs a running Postgres (docker compose up -d)"]
+#
+# The Docling tests stay out of a plain run: they load Docling's models, which
+# takes about half a minute and a download on first use. `-m docling` runs them;
+# a later -m on the command line replaces this one.
+addopts = "--strict-markers -m 'not docling'"
+markers = [
+    "integration: needs a running Postgres (docker compose up -d)",
+    "docling: runs Docling's models, slow; deselected unless -m docling",
+]
 
 [tool.mypy]
 strict = true

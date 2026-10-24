@@ -12,7 +12,7 @@ from anlagen_copilot.corpus import load_corpus
 from anlagen_copilot.db import get_connection
 from anlagen_copilot.embeddings import check_embedding_config
 from anlagen_copilot.errors import DocumentError
-from anlagen_copilot.ingest import ingest_document
+from anlagen_copilot.ingest import extract_document, ingest_document
 from anlagen_copilot.logging_setup import setup_logging
 from anlagen_copilot.scripts.download_corpus import download_document
 from anlagen_copilot.settings import get_settings
@@ -35,8 +35,9 @@ def main() -> None:
     again, and only this transaction makes the two halves inseparable. Abort in
     between and the document stands as it was; without it, a failed rerun would
     leave it empty.
-    `download_document()` sits outside the transaction deliberately: it does no
-    database work, but would hold one open across a 30-second download.
+    `download_document()` and `extract_document()` sit outside the transaction
+    deliberately: neither does database work, but either would hold one open,
+    across a 30-second download or minutes of Docling per manual.
 
     `DocumentError` is the only failure this loop absorbs — it carries the
     claim "affects exactly one document", so that document is skipped and the
@@ -70,8 +71,9 @@ def main() -> None:
         for doc in corpus.documents:
             try:
                 download_document(doc, raw_path)
+                pages = extract_document(doc, raw_path)
                 with conn.transaction():
-                    rejected = ingest_document(client, doc, conn, raw_path)
+                    rejected = ingest_document(client, doc, conn, pages)
             except DocumentError:
                 logger.exception("%s: skipped", doc.id)
                 skipped_documents.append(doc.id)
