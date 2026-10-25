@@ -92,6 +92,14 @@ class CorpusDocument(BaseModel):
             "that of the original PDF and stays so in chunks.page."
         ),
     )
+    text_encoding_defect: Literal["cp1252_as_macroman"] | None = Field(
+        default=None,
+        description=(
+            "How the text layer of this file arrives garbled, as found on the "
+            "document; the extraction repairs exactly this defect. None = no "
+            "known defect."
+        ),
+    )
     notes: str | None = None
 
     @model_validator(mode="after")

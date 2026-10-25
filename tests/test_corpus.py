@@ -97,3 +97,9 @@ def test_excerpt_pages_rejects_start_not_before_end() -> None:
 def test_excerpt_pages_rejects_end_beyond_total_pages() -> None:
     with pytest.raises(ValueError, match="past the last page"):
         make_document(pages=100, excerpt_pages=(10, 200))
+
+
+def test_text_encoding_defect_rejects_an_unknown_defect() -> None:
+    """A mistyped defect fails on loading, not hours into an ingest that repairs nothing."""
+    with pytest.raises(ValueError, match="text_encoding_defect"):
+        make_document(text_encoding_defect="cp1252_as_mac_roman")

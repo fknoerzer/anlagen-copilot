@@ -74,6 +74,8 @@ documents:
     url: https://download.sew-eurodrive.com/download/pdf/11358807.pdf
     retrieved: 2026-07-29
     encrypted: True
+    # Docling lieferte auf 209 von 248 Seiten Ersatzzeichen statt Umlauten.
+    text_encoding_defect: cp1252_as_macroman
     notes: Wirkungsgrade, Bauformen, Kennwerte. Diagramme als Erkennungs-Härtefall.
 
   - id: siemens-g120c-kurz

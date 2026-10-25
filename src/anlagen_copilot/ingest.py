@@ -12,6 +12,7 @@ from functools import cache
 from pathlib import Path
 
 import ftfy
+from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
 from docling.datamodel.base_models import ConversionStatus, InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.datamodel.settings import DEFAULT_PAGE_RANGE
@@ -53,10 +54,22 @@ _BOILERPLATE_MIN_RATIO = 0.85
 # chapter title reaches by chance. The smallest document in the corpus has 34.
 _BOILERPLATE_MIN_PAGES = 10
 
+# For `text_encoding_defect: cp1252_as_macroman`: the font hands out cp1252
+# bytes that pypdfium2 reads as MacRoman, so "müssen" arrives as "m¸ssen". Only
+# characters of German technical text are mapped back, not the whole page: the
+# same pages carry text in other fonts that arrives correctly, and "—" or "→"
+# re-encoded would turn into "Ñ" and worse. On ten pages of the project planning
+# catalogue the share of words also found by pypdf rose from 61-87 % to 82-94 %.
+_CP1252_AS_MACROMAN = str.maketrans(
+    {char.encode("cp1252").decode("mac_roman"): char for char in "äöüÄÖÜß°•®"}
+)
+
+_REPLACEMENT_CHARACTER = "�"
+
 
 @cache
-def _converter() -> DocumentConverter:
-    """Build the Docling converter once per process and hand out the same one.
+def _converter(*, pdfium: bool) -> DocumentConverter:
+    """Build the Docling converter once per process and backend and hand out the same one.
 
     The point is one place for the pipeline options, and one seam the tests can
     replace. That the models then load once per run instead of once per
@@ -68,11 +81,19 @@ def _converter() -> DocumentConverter:
     what a page shows only as an image, such as the EFF class marks in the
     project planning catalogue (q-034), and OCR reads them. Its noise is the
     price: a QR code came back as a stray character.
+
+    `pdfium` swaps Docling's default PDF backend for pypdfium2, for documents
+    with a known text encoding defect. The default backend turns characters of
+    a font it cannot decode into U+FFFD, a loss no repair can undo; pypdfium2
+    gives them back as other characters, which `_CP1252_AS_MACROMAN` maps home.
     """
     options = PdfPipelineOptions(do_ocr=True)
-    return DocumentConverter(
-        format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=options)}
+    pdf_format = (
+        PdfFormatOption(pipeline_options=options, backend=PyPdfiumDocumentBackend)
+        if pdfium
+        else PdfFormatOption(pipeline_options=options)
     )
+    return DocumentConverter(format_options={InputFormat.PDF: pdf_format})
 
 
 def extract_pages_docling(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, str]]:
@@ -100,14 +121,24 @@ def extract_pages_docling(document: CorpusDocument, raw_dir: Path) -> list[tuple
     failure and returns `PARTIAL_SUCCESS` as a normal result, so pages it could
     not read would come back empty and be skipped as pages without text.
 
+    A document with a `text_encoding_defect` is read through pypdfium2 and
+    repaired page by page. A U+FFFD left after the repair means the defect is
+    not the one declared, and the document fails rather than going into the
+    index with words the search cannot match. Elsewhere a U+FFFD is logged:
+    the default backend loses characters of fonts it cannot decode, and the
+    count shows where a document would need a declared defect of its own.
+
     Raises:
         DocumentError: When Docling cannot convert the file, or converts only
-            part of it.
+            part of it, or characters remain lost after the declared repair.
     """
     path: Path = raw_dir / document.filename
+    defect = document.text_encoding_defect
 
     try:
-        result = _converter().convert(path, page_range=document.excerpt_pages or DEFAULT_PAGE_RANGE)
+        result = _converter(pdfium=defect is not None).convert(
+            path, page_range=document.excerpt_pages or DEFAULT_PAGE_RANGE
+        )
     except ConversionError as exc:
         raise DocumentError(f"{document.id}: PDF not convertible") from exc
 
@@ -116,23 +147,35 @@ def extract_pages_docling(document: CorpusDocument, raw_dir: Path) -> list[tuple
         raise DocumentError(f"{document.id}: conversion ended with {result.status.value}: {errors}")
 
     doc = result.document
-    return [
-        (
-            page_number,
-            ftfy.fix_text(
-                doc.export_to_markdown(
-                    page_no=page_number,
-                    traverse_pictures=True,
-                    image_placeholder="",
-                    escape_html=False,
-                    escape_underscores=False,
-                    compact_tables=True,
-                ),
-                config=_TEXT_FIXES,
-            ),
+    pages: list[tuple[int, str]] = []
+    for page_number in sorted(doc.pages):
+        text = doc.export_to_markdown(
+            page_no=page_number,
+            traverse_pictures=True,
+            image_placeholder="",
+            escape_html=False,
+            escape_underscores=False,
+            compact_tables=True,
         )
-        for page_number in sorted(doc.pages)
-    ]
+        if defect == "cp1252_as_macroman":
+            text = text.translate(_CP1252_AS_MACROMAN)
+
+        lost = text.count(_REPLACEMENT_CHARACTER)
+        if lost and defect is not None:
+            raise DocumentError(
+                f"{document.id}: page {page_number} still has {lost} lost characters "
+                f"after the {defect} repair"
+            )
+        if lost:
+            logger.warning(
+                "%s: page %d has %d characters lost to a font encoding",
+                document.id,
+                page_number,
+                lost,
+            )
+
+        pages.append((page_number, ftfy.fix_text(text, config=_TEXT_FIXES)))
+    return pages
 
 
 def extract_pages(document: CorpusDocument, raw_dir: Path) -> list[tuple[int, str]]:

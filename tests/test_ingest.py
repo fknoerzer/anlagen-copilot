@@ -78,6 +78,32 @@ def test_extract_pages_docling_keeps_the_text_of_a_drawing() -> None:
     assert "<!-- image -->" not in text
 
 
+@pytest.mark.docling
+def test_extract_pages_docling_restores_the_umlauts_of_the_catalogue() -> None:
+    """The catalogue's declared defect is repaired: p. 159 reads "müssen", not "m�ssen"."""
+    corpus = load_corpus()
+    document = next(d for d in corpus.documents if d.id == "sew-katalog-projektierung")
+    if not (corpus.corpus.raw_dir / document.filename).is_file():
+        pytest.skip("corpus not downloaded")
+
+    [(_, text)] = extract_pages_docling(
+        document.model_copy(update={"excerpt_pages": (159, 159)}), corpus.corpus.raw_dir
+    )
+
+    assert "müssen Sie zusätzlich angeben" in text
+
+
+class _FakeDocument:
+    """Stands in for a `DoclingDocument`: one prepared Markdown text per page."""
+
+    def __init__(self, texts: dict[int, str]) -> None:
+        self.pages = texts
+        self._texts = texts
+
+    def export_to_markdown(self, *, page_no: int, **options: object) -> str:
+        return self._texts[page_no]
+
+
 class _FakeConverter:
     """Stands in for Docling's converter: returns a prepared result or raises."""
 
@@ -91,6 +117,24 @@ class _FakeConverter:
         return self._result
 
 
+def _patch_converter(monkeypatch: pytest.MonkeyPatch, converter: _FakeConverter) -> list[bool]:
+    """Replaces `_converter`; returns the `pdfium` values it was asked for, in order."""
+    asked: list[bool] = []
+
+    def fake(*, pdfium: bool) -> _FakeConverter:
+        asked.append(pdfium)
+        return converter
+
+    monkeypatch.setattr(ingest, "_converter", fake)
+    return asked
+
+
+def _converted(texts: dict[int, str]) -> SimpleNamespace:
+    return SimpleNamespace(
+        status=ConversionStatus.SUCCESS, errors=[], document=_FakeDocument(texts)
+    )
+
+
 def test_extract_pages_docling_rejects_a_partial_conversion(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -99,7 +143,7 @@ def test_extract_pages_docling_rejects_a_partial_conversion(
         status=ConversionStatus.PARTIAL_SUCCESS,
         errors=[SimpleNamespace(error_message="page 3 failed")],
     )
-    monkeypatch.setattr(ingest, "_converter", lambda: _FakeConverter(result=partial))
+    _patch_converter(monkeypatch, _FakeConverter(result=partial))
 
     with pytest.raises(DocumentError, match="partial_success: page 3 failed"):
         extract_pages_docling(make_document(filename="doc.pdf"), tmp_path)
@@ -109,11 +153,62 @@ def test_extract_pages_docling_turns_a_conversion_error_into_a_document_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The caller handles one error type for both strategies, as for pypdf."""
-    failing = _FakeConverter(error=ConversionError("unreadable"))
-    monkeypatch.setattr(ingest, "_converter", lambda: failing)
+    _patch_converter(monkeypatch, _FakeConverter(error=ConversionError("unreadable")))
 
     with pytest.raises(DocumentError, match="PDF not convertible"):
         extract_pages_docling(make_document(filename="doc.pdf"), tmp_path)
+
+
+def test_extract_pages_docling_repairs_a_cp1252_font_read_as_macroman(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The declared defect picks pypdfium2 and maps the misread characters home, and only those."""
+    garbled = "Sie m¸ssen zus‰tzlich angeben ï Schrumpfscheibe — Seite 164 → SPIROPLANÆ"
+    asked = _patch_converter(monkeypatch, _FakeConverter(result=_converted({159: garbled})))
+    document = make_document(filename="doc.pdf", text_encoding_defect="cp1252_as_macroman")
+
+    pages = extract_pages_docling(document, tmp_path)
+
+    assert asked == [True]
+    # "—" and "→" come from fonts that arrive correctly and stay as they are.
+    assert pages == [
+        (159, "Sie müssen zusätzlich angeben • Schrumpfscheibe — Seite 164 → SPIROPLAN®")
+    ]
+
+
+def test_extract_pages_docling_leaves_a_document_without_a_declared_defect_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """On a clean document the same characters are real: a per mille sign stays one."""
+    asked = _patch_converter(monkeypatch, _FakeConverter(result=_converted({1: "Steigung 2 ‰"})))
+
+    pages = extract_pages_docling(make_document(filename="doc.pdf"), tmp_path)
+
+    assert asked == [False]
+    assert pages == [(1, "Steigung 2 ‰")]
+
+
+def test_extract_pages_docling_fails_when_the_declared_repair_leaves_characters_lost(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR 005: a defect that is not the declared one must not reach the index half repaired."""
+    _patch_converter(monkeypatch, _FakeConverter(result=_converted({7: "m�ssen"})))
+    document = make_document(filename="doc.pdf", text_encoding_defect="cp1252_as_macroman")
+
+    with pytest.raises(DocumentError, match="page 7 still has 1 lost characters"):
+        extract_pages_docling(document, tmp_path)
+
+
+def test_extract_pages_docling_logs_lost_characters_without_a_declared_defect(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Without a declaration the page goes in, and the count says where to look."""
+    _patch_converter(monkeypatch, _FakeConverter(result=_converted({7: "m�ssen"})))
+
+    with caplog.at_level(logging.WARNING):
+        extract_pages_docling(make_document(filename="doc.pdf"), tmp_path)
+
+    assert was_logged(caplog, logging.WARNING, "page 7 has 1 characters lost"), caplog.text
 
 
 def test_extract_pages_keeps_original_page_numbers_in_an_excerpt(tmp_path: Path) -> None:
