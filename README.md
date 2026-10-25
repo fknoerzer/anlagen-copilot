@@ -138,7 +138,7 @@ flowchart LR
 
 ## Designentscheidungen
 
-Die wichtigsten Entscheidungen in einem Satz. Kontext, verworfene Alternativen und Konsequenzen stehen im jeweils verlinkten Architecture Decision Record; alle vierzehn ADRs listet [docs/adr/README.md](docs/adr/README.md).
+Die wichtigsten Entscheidungen in einem Satz. Kontext, verworfene Alternativen und Konsequenzen stehen im jeweils verlinkten Architecture Decision Record; alle fünfzehn ADRs listet [docs/adr/README.md](docs/adr/README.md).
 
 - **Eine Seite = ein Chunk**, damit jede Quelle auf die PDF-Seite genau zitierbar ist. ([ADR 001](docs/adr/001-seite-als-chunk.md))
 - **Reranker-Noten mit Seiten-ID, über strukturierte Ausgabe**, weil ein Format ohne IDs Tokens spart, aber Belegseiten verliert. ([ADR 004](docs/adr/004-reranker-ausgabe.md), [ADR 012](docs/adr/012-strukturierte-ausgabe.md))
@@ -146,6 +146,7 @@ Die wichtigsten Entscheidungen in einem Satz. Kontext, verworfene Alternativen u
 - **Vollständige Suche statt HNSW-Index**, weil der Index Seiten auslassen kann und bei 1.322 Seiten keine Zeit spart, sobald er zuverlässig sucht. ([ADR 011](docs/adr/011-vollstaendige-suche-statt-hnsw.md))
 - **Kein RAG-Framework**, damit sich jeder Schritt der Pipeline einzeln steuern, testen und messen lässt. ([ADR 010](docs/adr/010-kein-rag-framework.md))
 - **Antworten als Aussagen mit Seiten-IDs**, statt Zitatmarken wie `[2]` im Fließtext, damit jede Aussage ihren Beleg trägt und kein Suchmuster Zitate aus dem Text lesen muss, wo Einheiten wie `[1/min]` ebenfalls in eckigen Klammern stehen. ([ADR 013](docs/adr/013-antworten-als-aussagen.md))
+- **Docling für die Strategie `advanced`, weiter eine Seite je Chunk**, damit sich die Wirkung der Extraktion allein messen lässt; die defekte Textebene des Projektierungskatalogs wird gezielt repariert, nachdem volle OCR gemessen gescheitert ist. ([ADR 015](docs/adr/015-docling-fuer-advanced.md))
 
 ## Entwicklung mit Claude Code
 

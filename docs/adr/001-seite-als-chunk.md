@@ -21,10 +21,11 @@ bei Dokumenten ab 10 Seiten.
 - **Chunks fester Tokenlänge mit Überlappung.** Übliches Vorgehen, aber ein
   Chunk kann dann über eine Seitengrenze reichen, und die Quellenangabe wird
   ungenau.
-- **Layoutbewusstes Chunking (Docling oder Azure Document Intelligence, noch
-  offen).** Geplant als `advanced`-Strategie
+- **Layoutbewusstes Chunking.** Als `advanced`-Strategie
   (siehe [ADR 002](002-strategie-als-spalte.md)), um gegen diese Grundlinie
-  gemessen zu werden.
+  gemessen zu werden. Die Extraktion mit Docling steht in
+  [ADR 015](015-docling-fuer-advanced.md); sie bleibt vorerst bei einer Seite
+  je Chunk.
 
 ## Konsequenzen
 

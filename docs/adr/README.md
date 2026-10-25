@@ -19,3 +19,4 @@ Alternativen und Konsequenzen.
 | [012](012-strukturierte-ausgabe.md) | Strukturierte Ausgabe statt erzwungenem Tool-Call |
 | [013](013-antworten-als-aussagen.md) | Antworten als Aussagen mit Seiten-IDs |
 | [014](014-keine-begrenzung-pro-dokument.md) | Keine Begrenzung pro Dokument |
+| [015](015-docling-fuer-advanced.md) | Docling als Extraktion der Strategie `advanced` |
