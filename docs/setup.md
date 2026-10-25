@@ -69,7 +69,7 @@ uv run python -m anlagen_copilot.scripts.eval_generate --k 5 --candidates 20 --r
 uv run python -m anlagen_copilot.scripts.eval_generate --k 5 --candidates 20 --reranker claude-haiku-4-5-20251001 --generator claude-haiku-4-5-20251001
 ```
 
-Jeder Lauf beantwortet alle 36 Fragen, zählt korrekte und falsche Ablehnungen und wie viele der Belegseiten, die im Prompt lagen, die Antwort zitiert. Er hängt eine Zeile an `data/generation/eval_runs.jsonl` an, mit der vollständigen Antwort je Frage.
+Jeder Lauf beantwortet alle 37 Fragen, zählt korrekte und falsche Ablehnungen und wie viele der Belegseiten, die im Prompt lagen, die Antwort zitiert. Er hängt eine Zeile an `data/generation/eval_runs.jsonl` an, mit der vollständigen Antwort je Frage.
 
 ## Entwicklungsbefehle
 
