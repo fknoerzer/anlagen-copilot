@@ -169,7 +169,7 @@ Diese Arbeitsteilung ist im Werkzeug verankert: Ein Hook sperrt Schreibzugriffe 
 
 ## Codequalität
 
-- **Über 160 automatisierte Tests** (`uv run pytest`), ohne echte API-Calls: Die OpenAI- und Anthropic-Clients werden durch Fakes ersetzt. Integrationstests gegen PostgreSQL laufen, wenn die Datenbank verfügbar ist.
+- **Über 180 automatisierte Tests** (`uv run pytest`), ohne echte API-Calls: Die OpenAI- und Anthropic-Clients werden durch Fakes ersetzt. Integrationstests gegen PostgreSQL laufen, wenn die Datenbank verfügbar ist.
 - **Ohne Keys und ohne Docker prüfbar:** `uv sync --dev && uv run pytest` läuft in etwa 25 Sekunden durch. Die Tests setzen eigene Platzhalter-Keys und lesen keine `.env`; ohne Datenbank werden nur die Integrationstests übersprungen. Die Tests, die Docling-Modelle laden, laufen nur mit `-m docling`.
 - **Statische Typprüfung** mit mypy, **Linting & Formatierung** mit Ruff, **Abhängigkeitsprüfung** mit deptry.
 - **Pre-commit-Hooks** für Ruff, mypy und deptry.
