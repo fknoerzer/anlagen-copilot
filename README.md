@@ -3,7 +3,7 @@
 [![CI](https://github.com/fknoerzer/anlagen-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/fknoerzer/anlagen-copilot/actions/workflows/ci.yml)
 [![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 
-> **In Arbeit:** Eine layoutbewusste Ingestion mit Docling für Tabellen und Zeichnungen ist eingebaut; ihre Messung gegen das Eval-Set steht noch aus (siehe [Stand und Grenzen](#stand-und-grenzen)).
+> **In Arbeit:** die Prüfung, ob die zitierte Seite jede Aussage trägt (siehe [Stand und Grenzen](#stand-und-grenzen)).
 
 Ein RAG-System für technische Dokumentation aus der Antriebstechnik: Es beantwortet Fragen zu Getrieben, Motoren, Frequenzumrichtern und Schmierstoffen aus echten Herstellerhandbüchern, mit Quellenangabe bis auf die Seite. Zu jeder Frage holt eine Vektorsuche 20 Handbuchseiten, ein Sprachmodell wählt daraus die 5 relevantesten (Reranking), ein zweites antwortet nur aus diesen 5.
 
@@ -23,7 +23,7 @@ Der Korpus umfasst **6 Handbücher** von SEW-EURODRIVE und Siemens (SINAMICS G12
 
 Das Eval-Set hat 37 Fragen: 32 beantwortbare mit zusammen 36 Belegseiten (Multi-Hop-Fragen brauchen zwei) und 5 unbeantwortbare. Ein **Beleg** ist die Handbuchseite, auf der die Antwort steht; gezählt wird beim Retrieval je Beleg, nicht je Frage.
 
-Gemessen auf Eval-Set v4, Commit `e85aab9`; Spannen über drei Läufe (Retrieval) bzw. fünf (Antworten), weil der Reranker nicht deterministisch ist. Läufe, Zählweise, ein Beispiel Schritt für Schritt und die Zahlen je Fragetyp für die Antworten stehen in [docs/messungen.md](docs/messungen.md).
+Gemessen auf Eval-Set v4, Commit `e85aab9`, Strategie `naive`; Spannen über drei Läufe (Retrieval, Fakten) bzw. fünf (Antworten), weil Reranker und Modelle nicht deterministisch sind. Läufe, Commits, Zählweise und die Zahlen je Fragetyp stehen in [docs/messungen.md](docs/messungen.md).
 
 ### Retrieval
 
@@ -53,8 +53,19 @@ Claude Sonnet 5 antwortet aus den 5 Seiten nach dem Reranking.
 
 - **Belege:** Liegt ein Beleg im Prompt, zitiert die Antwort ihn in 88–96 % der Fälle.
 - **Ablehnung:** Die 5 Fragen, die die Handbücher nicht beantworten, lehnt das Modell in allen Läufen ab; von 32 beantwortbaren lehnt es 4–5 fälschlich ab, bei dreien davon lag der Beleg nicht im Prompt.
+- **Fakten:** Ein drittes Modell (Claude Sonnet 5.5) prüft jede Antwort gegen die erforderlichen Fakten ihrer Frage. 64–74 % der Antworten auf beantwortbare Fragen nennen alle; wiederholt widersprochen wird etwa, wenn eine Antwort die zulässige Ölsumpftemperatur als Umgebungstemperatur ausgibt.
 
-- **Fakten:** Ein drittes Modell (Claude Sonnet 5.5) prüft jede Antwort gegen die erforderlichen Fakten ihrer Frage. Von 27 Antworten auf beantwortbare Fragen nennen 20 alle (74 %); zwei widersprechen einem Fakt, etwa indem sie die zulässige Ölsumpftemperatur als Umgebungstemperatur ausgeben. Das ist ein einzelner Lauf (Commit `ab6e3d5`) auf einem der fünf Antwortläufe (`026ce12`); wie stark das prüfende Modell streut, ist noch nicht gemessen.
+### Docling gegen pypdf
+
+Die Strategie `advanced` liest die Handbücher mit Docling statt pypdf ([ADR 015](docs/adr/015-docling-fuer-advanced.md)), je drei Läufe auf `c4e7435`:
+
+| | `naive` (pypdf) | `advanced` (Docling) |
+|---|---:|---:|
+| Vektorsuche, Top 5 | 24 / 36 | 22 / 36 |
+| Reranking, Top 5 | 25–26 / 36 | 27 / 36 |
+| Antworten mit allen Fakten | 64–74 % | 61–62 % |
+
+Docling hilft dem Reranking, vor allem bei Multi-Hop, aber noch nicht den Antworten; Reranking und Generierung lesen dafür 10–16 % mehr Tokens.
 
 ### Kosten und Latenz
 
@@ -74,11 +85,11 @@ Die Gesamtspalte ist die Summe der beiden Spalten davor, kein eigener Messwert; 
 - [x] Antwortgenerierung mit Seitenzitaten
 - [x] Evaluation der Antworten: Ablehnung, Belege und erwartete Fakten
 - [ ] Prüfung, ob die zitierte Seite jede Aussage trägt
-- [ ] Layoutbewusste Ingestion-Strategie für Tabellen und Zeichnungen mit Docling: eingebaut, noch nicht gemessen
+- [x] Layoutbewusste Ingestion mit Docling (Strategie `advanced`)
 
 ### Bekannte Grenzen
 
-Das Eval-Set ist klein: Eine Belegseite bewegt den Gesamtwert um knapp 3 Prozentpunkte, bei Multi-Hop um gut 12, und bei den fünf unbeantwortbaren Fragen zählt jede Frage 20 Prozentpunkte. Gemessen wird auf einem einzigen Korpus aus sechs Handbüchern zweier Hersteller. Die Textextraktion mit pypdf verliert die Spaltenstruktur von Tabellen, sodass sich Werte ihren Zeilen nicht mehr sicher zuordnen lassen. Die Fakten bewertet ein Sprachmodell; seine 55 Urteile im bisher einzigen Lauf sind von Hand nachgeprüft. Aussagen, die über die erforderlichen Fakten hinausgehen, prüft es nicht: Ist eine davon falsch, gilt die Antwort trotzdem als vollständig.
+Das Eval-Set ist klein: Eine Belegseite bewegt den Gesamtwert um knapp 3 Prozentpunkte, bei Multi-Hop um gut 12, und bei den fünf unbeantwortbaren Fragen zählt jede Frage 20 Prozentpunkte. Gemessen wird auf einem einzigen Korpus aus sechs Handbüchern zweier Hersteller. pypdf verliert die Spalten von Tabellen. Die Fakten bewertet ein Sprachmodell; die 55 Urteile des ersten Laufs sind von Hand nachgeprüft. Aussagen über die erforderlichen Fakten hinaus prüft es nicht: Ist eine davon falsch, gilt die Antwort trotzdem als vollständig.
 
 ## Architektur
 

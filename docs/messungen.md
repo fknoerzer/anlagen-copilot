@@ -11,17 +11,16 @@ Ergänzt den Abschnitt [Ergebnisse](../README.md#ergebnisse) im README.
 
 ## Die Läufe hinter den Zahlen im README
 
-Alle liefen am 2026-10-19 gegen Eval-Set v4, Strategie `naive`, `text-embedding-3-large` mit 1536 Dimensionen, ohne Begrenzung je Dokument, Reranker mit Temperatur 0.0:
+Alle gegen Eval-Set v4, `text-embedding-3-large` mit 1536 Dimensionen, ohne Begrenzung je Dokument, Reranker `claude-haiku-4-5-20251001` mit Temperatur 0.0 und 20 Kandidaten, Generierung `claude-sonnet-5`, Faktenprüfung `claude-sonnet-5-5`:
 
-| Konfiguration | Läufe | Commit | Datei |
-|---|---:|---|---|
-| Nur Vektorsuche, `k=5` | 1 | `e85aab9` | `data/retrieval/eval_runs.jsonl` |
-| Nur Vektorsuche, `k=50` | 1 | `e85aab9` | `data/retrieval/eval_runs.jsonl` |
-| Reranking, `k=5`, 20 Kandidaten, `claude-haiku-4-5-20251001` | 3 | `e85aab9` | `data/retrieval/eval_runs.jsonl` |
-| Generierung, Konfiguration wie Reranking, `claude-sonnet-5` | 5 | 3 × `e85aab9`, 2 × `026ce12` | `data/generation/eval_runs.jsonl` |
-| Faktenprüfung, `claude-sonnet-5-5`, auf dem Generierungslauf von 12:08 (`026ce12`) | 1 | `ab6e3d5` | `data/facts/eval_runs.jsonl` |
+| Konfiguration | `naive` | `advanced` (Docling) |
+|---|---|---|
+| Nur Vektorsuche, `k=5` und `k=50` | je 1 × `e85aab9` | je 1 × `e2a86c3` |
+| Reranking, `k=5` | 3 × `e85aab9` | 3 × `c4e7435` |
+| Generierung | 3 × `e85aab9`, 2 × `026ce12` | 3 × `c4e7435` |
+| Faktenprüfung | 3: `ab6e3d5`, 2 × `7d46dfc` | 3 × `c4e7435` |
 
-Die Faktenprüfung lief am 2026-10-22 und bewertet die gespeicherten Antworten, ohne sie neu zu erzeugen. Zwei der fünf Generierungsläufe liegen auf `026ce12`, das nur die Läufe davor protokolliert; der Code ist derselbe. Die Vektorsuche ist vollständig und damit reproduzierbar ([ADR 011](adr/011-vollstaendige-suche-statt-hnsw.md)), deshalb genügt ohne Reranking ein Lauf. Die Spalte „Unter den 20 Kandidaten“ stammt aus den protokollierten `retrieval_rank`-Werten der Reranking-Läufe und ist in allen dreien gleich.
+Dateien: `data/{retrieval,generation,facts}/eval_runs.jsonl`. `026ce12` und `7d46dfc` protokollieren nur Läufe, der Code ist derselbe. Die Faktenprüfung bewertet die gespeicherten Antworten, bei `naive` die Läufe von 12:00, 12:02 und 12:08. Die Vektorsuche ist vollständig und reproduzierbar ([ADR 011](adr/011-vollstaendige-suche-statt-hnsw.md)), deshalb genügt ohne Reranking ein Lauf.
 
 Auch mit Temperatur 0.0 ist der Reranker nicht deterministisch: Zwischen den drei Läufen wechselt q-035 ihr Ergebnis. Die Läufe auf v3 mit Temperatur 1.0 streuten ebenso um einen Beleg (dort q-007); eine kleinere Streuung durch 0.0 ist damit nicht belegt. In allen drei Läufen verliert der Reranker q-007 und q-014, obwohl ihr Beleg unter den Kandidaten liegt. Die Generierungsläufe ranken ihre Kandidaten selbst neu, deshalb schwankt dort auch, welche Belege im Prompt liegen (25–26 von 36).
 
@@ -57,19 +56,32 @@ Die Nenner schwanken, weil jeder Lauf neu rerankt und damit andere Belege in den
 
 ## Fakten je Fragetyp
 
-| Fragetyp | Antwort vollständig |
-|---|---:|
-| Zwei Handbücher (Multi-Hop) | 2 / 4 |
-| Zeichnung | 3 / 5 |
-| Nachschlagen | 11 / 12 |
-| Tabelle | 4 / 6 |
-| **Gesamt** | **20 / 27 (74 %)** |
+Antworten, die alle erforderlichen Fakten nennen, je drei Läufe:
 
-Ein Lauf, deshalb Einzelwerte statt Spannen. Geprüft sind 27 Antworten: Im bewerteten Lauf lehnte das Modell neben den 5 unbeantwortbaren Fragen auch q-001, q-003, q-018, q-028 und q-036 ab. Von den 55 erforderlichen Fakten dieser Antworten nennen sie 41, lassen 11 aus und widersprechen 3. Die Widersprüche stehen in zwei Antworten: q-007 gibt die zulässige Ölsumpftemperatur (−15 bis +80 °C) als Umgebungstemperatur aus, q-014 nennt die Querkraftprüfung statt der Bedingung Ma · fB ≤ Ma max.
+| Fragetyp | `naive` | `advanced` |
+|---|---:|---:|
+| Zwei Handbücher (Multi-Hop) | 1–2 / 4 | 0 / 3–4 |
+| Zeichnung | 2–3 / 5 | 2–3 / 6 |
+| Nachschlagen | 10–11 / 12 | 11 / 12 |
+| Tabelle | 4 / 6–7 | 4 / 7 |
+| **Gesamt** | **64–74 %** | **61–62 %** |
 
-Alle 55 Urteile sind an den Antworten nachgeprüft und stimmen, auch die 41 „genannt“: Kein Fakt gilt zu Unrecht als genannt. Nicht geprüft werden Aussagen über die erforderlichen Fakten hinaus; eine falsche davon lässt die Antwort vollständig bleiben. Fehlend sind vor allem Angaben, die nur in einer Zeichnung stehen (q-002, Lage der Wärmeklasse auf dem Typenschild), und Bedingungen, die neben der Hauptantwort auf der Seite stehen (q-015 thermische Prüfung, q-025 Derating über +40 °C). Zwei Fakten bündelten Begründung und Nebendetail und ließen dadurch richtige Antworten durchfallen; sie sind seither getrennt (q-012, q-034), die Zahlen oben gelten mit der getrennten Fassung.
+Die Nenner schwanken mit den Ablehnungen. Die Spanne bei `naive` (18 bis 20 Antworten) ist Streuung von Generierung und Judge zusammen: Bei q-034 nennt der Judge dieselbe Aussage einmal vollständig, einmal nicht. Die 55 Urteile des ersten Laufs sind von Hand nachgeprüft und stimmen; Aussagen über die erforderlichen Fakten hinaus prüft der Judge nicht.
 
-Die Prüfung kostet je Lauf 38.591 Input- und 6.775 Output-Tokens, zum Listenpreis von Claude Sonnet 5.5 (2 $ / 10 $ je Mio. Tokens) etwa 0,15 $, bei 2,8 s je Antwort im Median. Wie stark das prüfende Modell zwischen zwei Läufen streut, ist noch nicht gemessen.
+Durchgehend widersprochen: q-007 gibt die Ölsumpftemperatur (−15 bis +80 °C) als Umgebungstemperatur aus, q-014 nennt die Querkraftprüfung statt Ma · fB ≤ Ma max. Häufig fehlend: Angaben nur in einer Zeichnung (q-002) und Bedingungen neben der Hauptantwort (q-015, q-025). Je Lauf rund 0,15 $ und 2,8 s je Antwort.
+
+## `advanced` gegen `naive`
+
+| | `naive` | `advanced` |
+|---|---:|---:|
+| Vektorsuche, Top 5 | 24 / 36 | 22 / 36 |
+| Reranking, Top 5 | 25–26 / 36 | 27 / 36 |
+| Beleg im Prompt zitiert | 23–25 | 23–25 |
+| Falsche Ablehnungen | 4–5 / 32 | 3–4 / 32 |
+| Antworten mit allen Fakten | 64–74 % | 61–62 % |
+| Input-Tokens Reranking / Generierung je Lauf | 543 k / 205 k | 629 k / 226 k |
+
+Docling hilft dem Reranking, vor allem bei Multi-Hop (6 statt 4–5 von 8), aber noch nicht den Antworten. Der deutlichste Verlust ist q-035: SEW-Motoren S. 28 besteht unter Docling aus kleinen Tabellen mit gleichen Kopfzeilen, fällt aus den Top 50 der Vektorsuche, und der Antwort fehlen die Optionen /TH, /PK und /PT. q-037 (OPC UA) zählt unter `advanced` als beantwortet, sagt aber in allen drei Läufen, dass die Unterlagen OPC UA nicht nennen. Hintergrund: [ADR 015](adr/015-docling-fuer-advanced.md).
 
 ## Was das Reranking kostet
 

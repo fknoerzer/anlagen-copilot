@@ -81,21 +81,20 @@ Ergebnis auf dem Katalog (`e2a86c3`): 0 Ersatzzeichen, 3.553 Umlaute, 417 von
 
 ## Konsequenzen
 
-- Erster Messpunkt, Retrieval ohne Reranker auf Eval-Set v4: `naive` 24 / 36 in
-  den Top 5 und 33 / 36 in den Top 50 (`e85aab9`), `advanced` 22 / 36 und
-  33 / 36, vor (`dbbe947`) wie nach der Reparatur (`e2a86c3`). Die Reparatur
-  bewegt die Ränge der Katalogfragen kaum (q-020 von 11 auf 8); die Verluste
-  kommen aus der Umstrukturierung selbst: q-020 fällt von Rang 1 auf 8, q-016
-  aus den Top 5, die SEW-Seite zu q-035 aus den Top 50.
+- Gemessen auf Eval-Set v4, je drei Läufe mit Reranker und Generierung
+  (`naive` `e85aab9`, `advanced` `c4e7435`): Reranking 27 statt 25–26 von 36
+  Belegen in den Top 5, Multi-Hop 6 statt 4–5 von 8; Antworten mit allen
+  Fakten 61–62 % statt 64–74 %. Ohne Reranker 22 statt 24 von 36
+  (`e2a86c3`). Docling hilft also dem Reranking, noch nicht den Antworten.
+- Strukturiert ist nicht immer besser: SEW-Motoren S. 28 (q-035) besteht unter
+  Docling aus kleinen Tabellen mit gleichen Kopfzeilen und fällt aus den Top 50
+  der Vektorsuche.
 - q-021 findet keine Strategie, obwohl Docling die Tabelle auf S. 163 sauber
-  extrahiert. Der Engpass dort ist die Suche, nicht die Extraktion; ein Kandidat
-  für Chunks kleiner als eine Seite.
-- Ein Ingest mit `advanced` dauert auf der CPU rund 1 h 40 min für 1.334 Seiten.
-  `import anlagen_copilot.ingest` dauert 7,7 s, auch für `naive`.
+  extrahiert; der Engpass ist dort die Suche.
+- Reranking und Generierung lesen 16 % bzw. 10 % mehr Input-Tokens. Ein Ingest
+  dauert auf der CPU rund 1 h 40 min, `import anlagen_copilot.ingest` 7,7 s,
+  auch für `naive`.
 - Docling verwirft vereinzelt Tabellenzellen, die es keiner Zeile oder Spalte
-  zuordnen kann (Warnung `MatchingPostProcessor`, meist 1–5, einmal 10 von 162
-  Zellen).
-- Die Reparatur ist auf einen Defekt zugeschnitten. Ein neues Dokument mit
-  anderem Schriftfehler braucht einen eigenen Befund im Manifest; bis dahin
-  zeigt die Warnung zu U+FFFD, wo (heute: eine Seite in `sew-motoren-drn`, 9
-  Zeichen). Rund 20 ß bleiben „fl“, wo pypdf das Wort am Zeilenende trennt.
+  zuordnet (Warnung `MatchingPostProcessor`, meist 1–5 Zellen).
+- Die Reparatur gilt nur für den einen Defekt; ein anderer Schriftfehler braucht
+  einen eigenen Befund. Rund 20 ß bleiben „fl“, wo pypdf das Wort trennt.
