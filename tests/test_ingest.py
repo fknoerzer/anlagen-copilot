@@ -22,6 +22,7 @@ from anlagen_copilot import ingest
 from anlagen_copilot.corpus import load_corpus
 from anlagen_copilot.errors import DocumentError
 from anlagen_copilot.ingest import (
+    _restore_eszett,
     extract_document,
     extract_pages,
     extract_pages_docling,
@@ -79,18 +80,23 @@ def test_extract_pages_docling_keeps_the_text_of_a_drawing() -> None:
 
 
 @pytest.mark.docling
-def test_extract_pages_docling_restores_the_umlauts_of_the_catalogue() -> None:
-    """The catalogue's declared defect is repaired: p. 159 reads "müssen", not "m�ssen"."""
+@pytest.mark.parametrize(
+    ("page", "expected"), [(159, "müssen Sie zusätzlich angeben"), (209, "Maße in mm")]
+)
+def test_extract_pages_docling_restores_the_umlauts_of_the_catalogue(
+    page: int, expected: str
+) -> None:
+    """The catalogue's declared defect is repaired: "müssen", not "m�ssen"; "Maße", not "Mafle"."""
     corpus = load_corpus()
     document = next(d for d in corpus.documents if d.id == "sew-katalog-projektierung")
     if not (corpus.corpus.raw_dir / document.filename).is_file():
         pytest.skip("corpus not downloaded")
 
     [(_, text)] = extract_pages_docling(
-        document.model_copy(update={"excerpt_pages": (159, 159)}), corpus.corpus.raw_dir
+        document.model_copy(update={"excerpt_pages": (page, page)}), corpus.corpus.raw_dir
     )
 
-    assert "müssen Sie zusätzlich angeben" in text
+    assert expected in text
 
 
 class _FakeDocument:
@@ -163,17 +169,30 @@ def test_extract_pages_docling_repairs_a_cp1252_font_read_as_macroman(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The declared defect picks pypdfium2 and maps the misread characters home, and only those."""
-    garbled = "Sie m¸ssen zus‰tzlich angeben ï Schrumpfscheibe — Seite 164 → SPIROPLANÆ"
+    garbled = "Sie m¸ssen zus‰tzlich angeben ï Mafle — Seite 164 → SPIROPLANÆ"
     asked = _patch_converter(monkeypatch, _FakeConverter(result=_converted({159: garbled})))
+    monkeypatch.setattr(ingest, "extract_pages", Mock(return_value=[(159, "Maße")]))
     document = make_document(filename="doc.pdf", text_encoding_defect="cp1252_as_macroman")
 
     pages = extract_pages_docling(document, tmp_path)
 
     assert asked == [True]
     # "—" and "→" come from fonts that arrive correctly and stay as they are.
-    assert pages == [
-        (159, "Sie müssen zusätzlich angeben • Schrumpfscheibe — Seite 164 → SPIROPLAN®")
-    ]
+    assert pages == [(159, "Sie müssen zusätzlich angeben • Maße — Seite 164 → SPIROPLAN®")]
+
+
+def test_restore_eszett_takes_back_only_the_fl_that_pypdf_reads_as_ss() -> None:
+    """Real "Flansch" and "auflegen" stay; only words pypdf has with "ß", not "fl", change."""
+    reference = "gemäß Flansch Maße auflegen außen"
+
+    restored = _restore_eszett("gemäfl Flansch Mafle auflegen auflen", reference)
+
+    assert restored == "gemäß Flansch Maße auflegen außen"
+
+
+def test_restore_eszett_keeps_a_word_pypdf_has_both_ways() -> None:
+    """With "Mafle" on the page as well, the letters cannot tell which one is meant."""
+    assert _restore_eszett("Mafle", "Maße Mafle") == "Mafle"
 
 
 def test_extract_pages_docling_leaves_a_document_without_a_declared_defect_alone(
@@ -193,6 +212,7 @@ def test_extract_pages_docling_fails_when_the_declared_repair_leaves_characters_
 ) -> None:
     """ADR 005: a defect that is not the declared one must not reach the index half repaired."""
     _patch_converter(monkeypatch, _FakeConverter(result=_converted({7: "m�ssen"})))
+    monkeypatch.setattr(ingest, "extract_pages", Mock(return_value=[(7, "müssen")]))
     document = make_document(filename="doc.pdf", text_encoding_defect="cp1252_as_macroman")
 
     with pytest.raises(DocumentError, match="page 7 still has 1 lost characters"):

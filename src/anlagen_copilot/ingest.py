@@ -60,11 +60,35 @@ _BOILERPLATE_MIN_PAGES = 10
 # same pages carry text in other fonts that arrives correctly, and "—" or "→"
 # re-encoded would turn into "Ñ" and worse. On ten pages of the project planning
 # catalogue the share of words also found by pypdf rose from 61-87 % to 82-94 %.
+# The "ß" in the table never fires there, since PDFium splits its "ﬂ" into two
+# letters first; `_restore_eszett()` handles that case.
 _CP1252_AS_MACROMAN = str.maketrans(
     {char.encode("cp1252").decode("mac_roman"): char for char in "äöüÄÖÜß°•®"}
 )
 
-_REPLACEMENT_CHARACTER = "�"
+_REPLACEMENT_CHARACTER = "\N{REPLACEMENT CHARACTER}"
+
+_WORD = re.compile(r"\w+")
+
+
+def _restore_eszett(text: str, reference: str) -> str:
+    """Put back the "ß" that arrived as "fl", using the same page read by pypdf.
+
+    Under `cp1252_as_macroman` a "ß" comes out as the ligature "ﬂ", and PDFium
+    splits that into the two letters "f" and "l" before Docling sees the text.
+    From then on "Mafle" cannot be told from "Flansch" by its letters, so the
+    page as pypdf reads it decides: a word is replaced only when pypdf has it
+    with "ß" and does not have it with "fl". On the catalogue this restored 487
+    "ß" and changed no real "fl"; some 20 words stay broken where pypdf split
+    them at a line end.
+    """
+    words = set(_WORD.findall(reference))
+    restored = {
+        word.replace("ß", "fl"): word
+        for word in words
+        if "ß" in word and word.replace("ß", "fl") not in words
+    }
+    return _WORD.sub(lambda match: restored.get(match.group(), match.group()), text)
 
 
 @cache
@@ -122,9 +146,11 @@ def extract_pages_docling(document: CorpusDocument, raw_dir: Path) -> list[tuple
     not read would come back empty and be skipped as pages without text.
 
     A document with a `text_encoding_defect` is read through pypdfium2 and
-    repaired page by page. A U+FFFD left after the repair means the defect is
-    not the one declared, and the document fails rather than going into the
-    index with words the search cannot match. Elsewhere a U+FFFD is logged:
+    repaired page by page, and once more with pypdf, whose text of the same
+    page tells `_restore_eszett()` which "fl" was a "ß". A U+FFFD left after
+    the repair means the defect is not the one declared, and the document fails
+    rather than going into the index with words the search cannot match.
+    Elsewhere a U+FFFD is logged:
     the default backend loses characters of fonts it cannot decode, and the
     count shows where a document would need a declared defect of its own.
 
@@ -147,6 +173,7 @@ def extract_pages_docling(document: CorpusDocument, raw_dir: Path) -> list[tuple
         raise DocumentError(f"{document.id}: conversion ended with {result.status.value}: {errors}")
 
     doc = result.document
+    reference = dict(extract_pages(document, raw_dir)) if defect is not None else {}
     pages: list[tuple[int, str]] = []
     for page_number in sorted(doc.pages):
         text = doc.export_to_markdown(
@@ -158,7 +185,9 @@ def extract_pages_docling(document: CorpusDocument, raw_dir: Path) -> list[tuple
             compact_tables=True,
         )
         if defect == "cp1252_as_macroman":
-            text = text.translate(_CP1252_AS_MACROMAN)
+            text = _restore_eszett(
+                text.translate(_CP1252_AS_MACROMAN), reference.get(page_number, "")
+            )
 
         lost = text.count(_REPLACEMENT_CHARACTER)
         if lost and defect is not None:
