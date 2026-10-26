@@ -56,6 +56,19 @@ class Settings(BaseSettings):
 
     ingest_strategy: Strategy = "naive"
 
+    # The answer endpoint's search. The eval scripts take these as arguments; the
+    # server has no command line, so it reads them here. The defaults are the
+    # configuration of the v4 generation runs (e85aab9, 026ce12), so what the
+    # endpoint answers is what was measured. `ask_strategy` is apart from
+    # `ingest_strategy`: setting the latter to re-ingest must not change what
+    # the endpoint searches. `advanced` brought more expected pages into the
+    # prompt with reranking (27 against 25-26 of 36, ADR 015).
+    ask_strategy: Strategy = "advanced"
+    ask_k: int = Field(default=5, ge=1)
+    ask_candidates: int | None = Field(default=20, ge=1)
+    ask_reranker: str | None = "claude-haiku-4-5-20251001"
+    ask_per_document: int | None = Field(default=None, ge=1)
+
     # The ceiling came from pgvector's HNSW index, which takes at most 2000 dimensions.
     # The search runs without it since ADR 011; the ceiling stays so the index can
     # return without re-embedding (ADR 003). 1536 is the common choice, not a measured one.

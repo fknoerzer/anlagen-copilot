@@ -1,0 +1,13 @@
+# Settings for the page in ui/app.py. Streamlit reads this file from the folder
+# it is started in, so run `streamlit run ui/app.py` from the project root.
+
+[server]
+# Reachable from this machine only, like the API: every question spends tokens.
+address = "127.0.0.1"
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"
+primaryColor = "#1f6feb"

@@ -20,10 +20,17 @@ dependencies = [
     "pydantic-settings>=2.14.2",
     "pypdf[crypto]>=6.15.0",
     "pyyaml>=6.0.3",
+    "uvicorn>=0.54.0",
 ]
 
 [project.scripts]
 anlagen-copilot = "anlagen_copilot.cli:main"
+anlagen-copilot-api = "anlagen_copilot.app:main"
+
+[project.optional-dependencies]
+ui = [
+    "streamlit>=1.66.1",
+]
 
 [build-system]
 requires = ["uv_build>=0.11.19,<0.12.0"]
@@ -69,12 +76,10 @@ markers = [
 
 [tool.mypy]
 strict = true
-files = ["src", "tests"]
+files = ["src", "tests", "ui"]
 ignore_missing_imports = true
 
 [tool.deptry.per_rule_ignores]
 # anlagen_copilot is this project's own package, not a transitive third-party
 # one — deptry misreads self-imports in the src layout as DEP003.
 DEP003 = ["anlagen_copilot"]
-# Declared ahead of the work that will use it, not wired up yet.
-DEP002 = ["fastapi"]
