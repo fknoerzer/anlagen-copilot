@@ -1,8 +1,10 @@
-"""The way from a question to the pages a model answers from: search, then rerank.
+"""The way from a question to its answer: search, rerank, then generate.
 
-Shared by both evaluations and, later, the answer endpoint. It knows only the
-text of a question, never an eval question: the pipeline answers real questions,
-and those come without expected pages.
+`select_pages()` stops at the pages, which is all the retrieval evaluation
+needs; `answer_question()` goes on to the answer, for the generation evaluation
+and the answer endpoint alike. Both know only the text of a question, never an
+eval question: the pipeline answers real questions, and those come without
+expected pages.
 """
 
 import time
@@ -12,6 +14,7 @@ from openai import OpenAI
 from psycopg import Connection
 from pydantic import BaseModel, ConfigDict
 
+from anlagen_copilot.generate import Generated, generate
 from anlagen_copilot.rerank import rerank
 from anlagen_copilot.retrieval import Source, retrieve_global, retrieve_per_document
 from anlagen_copilot.settings import Strategy
@@ -98,4 +101,68 @@ def select_pages(
         reranked_by=reranked.model,
         rerank_input_tokens=reranked.input_tokens,
         rerank_output_tokens=reranked.output_tokens,
+    )
+
+
+class AnsweredQuestion(BaseModel):
+    """The pages one question produced, the answer generated from them, and how long that took."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    selection: PageSelection
+    generated: Generated
+    generation_seconds: float
+
+
+def answer_question(
+    openai_client: OpenAI,
+    anthropic_client: Anthropic,
+    question: str,
+    conn: Connection,
+    strategy: Strategy,
+    *,
+    k: int,
+    per_document: int | None,
+    candidates: int | None,
+    reranker: str | None,
+    rerank_temperature: float,
+    generation_model: str,
+) -> AnsweredQuestion:
+    """Select the pages for `question` and generate the answer from them.
+
+    The one place where search and generation are joined, for the generation
+    evaluation and the answer endpoint alike. Joined in two places, a change to
+    one would let the endpoint answer differently from what was measured, and
+    no test would notice.
+
+    The ids in the answer refer to `selection.pages` in their order, as
+    `generate()` numbered them in the prompt.
+
+    Raises:
+        Whatever `select_pages()` or `generate()` raises.
+    """
+    selection = select_pages(
+        openai_client,
+        anthropic_client,
+        question,
+        conn,
+        strategy,
+        k=k,
+        per_document=per_document,
+        candidates=candidates,
+        reranker=reranker,
+        rerank_temperature=rerank_temperature,
+    )
+
+    generation_start = time.perf_counter()
+    generated = generate(
+        client=anthropic_client,
+        question=question,
+        sources=selection.pages,
+        model=generation_model,
+    )
+    generation_seconds = time.perf_counter() - generation_start
+
+    return AnsweredQuestion(
+        selection=selection, generated=generated, generation_seconds=generation_seconds
     )

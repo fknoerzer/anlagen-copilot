@@ -9,7 +9,6 @@ pages alone and come out the same for the same answer.
 import argparse
 import collections
 import logging
-import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, Self
@@ -19,10 +18,10 @@ from pydantic import BaseModel, ConfigDict, NonNegativeInt, PositiveInt, model_v
 from anlagen_copilot.clients import get_anthropic_client, get_openai_client
 from anlagen_copilot.db import get_connection
 from anlagen_copilot.eval import EvalQuestion, ExpectedPage, load_eval
-from anlagen_copilot.generate import GeneratedAnswer, Statement, generate
+from anlagen_copilot.generate import GeneratedAnswer, Statement
 from anlagen_copilot.logging_setup import setup_logging
 from anlagen_copilot.paths import DATA_DIR
-from anlagen_copilot.pipeline import select_pages
+from anlagen_copilot.pipeline import answer_question
 from anlagen_copilot.retrieval import Source
 from anlagen_copilot.runlog import append_run, current_commit, median_seconds
 from anlagen_copilot.settings import Strategy, get_settings
@@ -184,8 +183,8 @@ def run_generation(
 ) -> GenerationRun:
     """Answer every eval question, score the answers, and append the run to `runs_path`.
 
-    Each question runs the pipeline an answer would run in use: `select_pages()`,
-    then `generate()` on the pages it chose. The model sees only the text of the
+    Each question runs `answer_question()`, the pipeline the answer endpoint runs
+    too, so what is measured is what is served. The model sees only the text of the
     question, never the eval question: its expected pages would let it copy.
 
     `generator` is a parameter like `reranker`, not a setting: neither model is
@@ -219,7 +218,7 @@ def run_generation(
     with get_connection() as conn:
         for eval_question in eval_set.questions:
             try:
-                selection = select_pages(
+                answered = answer_question(
                     openai_client,
                     anthropic_client,
                     eval_question.question,
@@ -230,22 +229,16 @@ def run_generation(
                     candidates=candidates,
                     reranker=reranker,
                     rerank_temperature=settings.rerank_temperature,
-                )
-                sources = selection.pages
-                rerank_input += selection.rerank_input_tokens
-                rerank_output += selection.rerank_output_tokens
-                generation_start = time.perf_counter()
-
-                generated = generate(
-                    client=anthropic_client,
-                    question=eval_question.question,
-                    sources=sources,
-                    model=generator,
+                    generation_model=generator,
                 )
             except Exception as e:
                 e.add_note(f"while running {eval_question.id} ({eval_question.category})")
                 raise
-            generation_seconds = time.perf_counter() - generation_start
+            selection, generated = answered.selection, answered.generated
+            sources = selection.pages
+            rerank_input += selection.rerank_input_tokens
+            rerank_output += selection.rerank_output_tokens
+            generation_seconds = answered.generation_seconds
 
             score = _score_answer(eval_question, generated.answer, sources)
 

@@ -7,6 +7,7 @@ import pytest
 from helpers import make_answer, make_eval_question, make_expected_source, was_logged
 from pydantic import ValidationError
 
+from anlagen_copilot import pipeline
 from anlagen_copilot.eval import EvalQuestion, EvalSet
 from anlagen_copilot.generate import Generated, GeneratedAnswer
 from anlagen_copilot.pipeline import PageSelection
@@ -189,9 +190,10 @@ def _patch_run_generation(
 ) -> tuple[Mock, Mock]:
     """Replaces everything `run_generation()` reaches outside itself; returns both stage mocks.
 
-    `select_pages` and `generate` are patched where `run_generation()` looks them
-    up, in `eval_generate`: the pipeline has tests of its own, this pins what the
-    run does with what the stages hand back.
+    `select_pages` and `generate` are patched where `answer_question()` looks them
+    up, in `pipeline`, so the run goes through the same join of the two stages
+    that the answer endpoint uses. This pins what the run does with what the
+    stages hand back.
     """
     eval_set = EvalSet(version="v-test", questions=questions)
     monkeypatch.setattr(eval_generate, "load_eval", Mock(return_value=eval_set))
@@ -200,8 +202,8 @@ def _patch_run_generation(
     monkeypatch.setattr(eval_generate, "get_connection", MagicMock())
     select = Mock(return_value=selection)
     generate = Mock(return_value=generated)
-    monkeypatch.setattr(eval_generate, "select_pages", select)
-    monkeypatch.setattr(eval_generate, "generate", generate)
+    monkeypatch.setattr(pipeline, "select_pages", select)
+    monkeypatch.setattr(pipeline, "generate", generate)
     return select, generate
 
 
