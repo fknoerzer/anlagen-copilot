@@ -86,6 +86,7 @@ Die Gesamtspalte ist die Summe der beiden Spalten davor, kein eigener Messwert; 
 - [x] Evaluation der Antworten: Ablehnung, Belege und erwartete Fakten
 - [ ] Prüfung, ob die zitierte Seite jede Aussage trägt
 - [x] Layoutbewusste Ingestion mit Docling (Strategie `advanced`)
+- [x] API (`POST /api/ask`) und eine Oberfläche, die beide Indizes nebeneinander antworten lässt
 
 ### Bekannte Grenzen
 
@@ -146,6 +147,7 @@ flowchart LR
 - **Modelle:** OpenAI für Embeddings, Anthropic Claude für Reranking, Generierung und Faktenprüfung
 - **PDF-Extraktion:** pypdf + ftfy, für die Strategie `advanced` [Docling](https://github.com/docling-project/docling)
 - **Validierung & Konfiguration:** Pydantic, pydantic-settings
+- **API & Oberfläche:** FastAPI mit Uvicorn, Streamlit
 
 ## Designentscheidungen
 
@@ -194,6 +196,16 @@ uv run python -m anlagen_copilot.scripts.eval_retrieval --k 5 --candidates 20 --
 uv run python -m anlagen_copilot.scripts.eval_generate --k 5 --candidates 20 --reranker claude-haiku-4-5-20251001
 uv run python -m anlagen_copilot.scripts.eval_facts   # prüft den neuesten Antwortlauf
 ```
+
+API und Oberfläche, jeweils in einem eigenen Terminal:
+
+```bash
+INGEST_STRATEGY=advanced uv run anlagen-copilot   # Docling-Index, rund 1 h 40 min auf der CPU
+uv run anlagen-copilot-api
+uv run --extra ui streamlit run ui/app.py
+```
+
+Die API sucht standardmäßig im Docling-Index; wer nur `naive` indexiert hat, setzt `ASK_STRATEGY=naive` in der `.env`.
 
 Die ausführliche Fassung mit Erklärungen zu jedem Schritt steht in [docs/setup.md](docs/setup.md); alle Optionen der Eval-Skripte zeigt `--help`.
 
