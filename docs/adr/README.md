@@ -20,3 +20,5 @@ Alternativen und Konsequenzen.
 | [013](013-antworten-als-aussagen.md) | Antworten als Aussagen mit Seiten-IDs |
 | [014](014-keine-begrenzung-pro-dokument.md) | Keine Begrenzung pro Dokument |
 | [015](015-docling-fuer-advanced.md) | Docling als Extraktion der Strategie `advanced` |
+| [016](016-faktenpruefung-mit-judge.md) | Faktenprüfung mit einem eigenen Judge-Modell |
+| [017](017-api-antwortet-wie-gemessen.md) | Die API antwortet, wie gemessen wurde |
