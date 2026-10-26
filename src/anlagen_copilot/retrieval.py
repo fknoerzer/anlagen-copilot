@@ -41,29 +41,20 @@ _SQL_PER_DOCUMENT = """
 class Source(BaseModel):
     """One retrieved page, as far as the database knows it.
 
-    Only `document_id`, `page`, `content` and `score` are filled here. Title,
-    manufacturer, doc type and the PDF link live in `corpus.yaml`, not in the
-    table, and `excerpt` is cut from `content` later — the answering layer adds
-    all five, which is why they are optional rather than required.
+    Title, manufacturer and doc type live in `corpus.yaml`, not in the table;
+    the answer endpoint adds them to its own `Citation` instead of to this model.
 
     `extra="forbid"` earns its place on the way in: `class_row(Source)` hands
     every selected column to the constructor by name, so a column the model
     does not know is a mismatch between query and model — better refused here
-    than dropped and missed. `frozen=True` means the answering layer builds a
-    new object with `model_copy(update=...)` rather than filling the fields in
-    place, which is how the rest of the models in this project behave too.
+    than dropped and missed.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     document_id: str
-    title: str | None = None
-    manufacturer: str | None = None
-    doc_type: str | None = None
     page: int
     score: float
-    excerpt: str | None = None
-    pdf_url: str | None = None
     content: str
 
 
