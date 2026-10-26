@@ -56,11 +56,18 @@ class Answer:
 
 
 @dataclass(frozen=True)
+class Failed:
+    """Why one strategy has no answer, in words the page can show."""
+
+    message: str
+
+
+@dataclass(frozen=True)
 class Turn:
-    """One question of this session with the answer of each strategy asked."""
+    """One question of this session with the outcome of each strategy asked."""
 
     question: str
-    answers: dict[str, Answer]
+    answers: dict[str, Answer | Failed]
 
 
 def ask(question: str, strategy: str) -> Answer:
@@ -75,10 +82,28 @@ def ask(question: str, strategy: str) -> Answer:
     return Answer(AskResponse.model_validate(response.json()), time.perf_counter() - start)
 
 
+def ask_or_fail(question: str, strategy: str) -> Answer | Failed:
+    """Ask one strategy; an error of the API becomes a `Failed` for that strategy alone.
+
+    In a comparison one strategy can fail where the other answers, for instance
+    when the model returns an answer the API rejects. The other answer is still
+    worth showing. Only an unreachable API is left to raise: then nothing works.
+    """
+    try:
+        return ask(question, strategy)
+    except httpx.HTTPStatusError as e:
+        return Failed(
+            f"Die API antwortete mit {e.response.status_code}. "
+            "Die Ursache steht im Terminal der API."
+        )
+    except httpx.TimeoutException:
+        return Failed(f"Keine Antwort innerhalb von {TIMEOUT_SECONDS} s.")
+
+
 def ask_all(question: str, strategies: list[str]) -> Turn:
     """Ask every strategy at once, so a comparison takes as long as the slower answer."""
     with ThreadPoolExecutor(max_workers=len(strategies)) as pool:
-        answers = pool.map(lambda strategy: ask(question, strategy), strategies)
+        answers = pool.map(lambda strategy: ask_or_fail(question, strategy), strategies)
         return Turn(question, dict(zip(strategies, answers, strict=True)))
 
 
@@ -131,7 +156,10 @@ def show_turn(turn: Turn) -> None:
         with column:
             if len(turn.answers) > 1:
                 st.markdown(f"#### {STRATEGIES[strategy]}")
-            show_answer(answer)
+            if isinstance(answer, Failed):
+                st.error(answer.message)
+            else:
+                show_answer(answer)
 
 
 def use_example(question: str) -> None:
@@ -181,9 +209,6 @@ if submitted and question.strip():
         st.error(
             f"Die API unter {API_URL} ist nicht erreichbar. Läuft `uv run anlagen-copilot-api`?"
         )
-        st.stop()
-    except httpx.HTTPStatusError as e:
-        st.error(f"Die API antwortete mit {e.response.status_code}: {e.response.text[:300]}")
         st.stop()
     st.session_state.shown = len(history) - 1
 
