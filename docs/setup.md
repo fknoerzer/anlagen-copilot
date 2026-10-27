@@ -90,6 +90,7 @@ Die Seite „Ergebnisse“ zeigt die Messungen aus `data/*/eval_runs.jsonl` und 
 ## Entwicklungsbefehle
 
 ```bash
+uv sync --dev --extra ui   # mypy prüft auch ui/ und braucht dafür Streamlit
 uv run pre-commit install
 uv run ruff check .
 uv run ruff format .
