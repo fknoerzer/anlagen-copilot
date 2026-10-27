@@ -1,4 +1,4 @@
-"""A small Streamlit page that asks the answer API and shows the answer with its sources.
+"""The page that asks the answer API and shows the answer with its sources.
 
 Talks to the running API over HTTP rather than calling the pipeline itself, so
 the page uses the endpoint the way any other client would. The response is
@@ -8,8 +8,7 @@ loudly instead of rendering half a page.
 By default the page asks both indexes and shows the answers side by side, so
 what Docling changes against pypdf is visible on the question itself.
 
-Start the API first (`uv run anlagen-copilot-api`), then this page with
-`uv run --extra ui streamlit run ui/app.py`.
+Needs the API running (`uv run anlagen-copilot-api`); `ui/streamlit_app.py` serves it.
 """
 
 import os
@@ -172,7 +171,6 @@ def show_from_history(index: int) -> None:
     st.session_state.shown = index
 
 
-st.set_page_config(page_title="Anlagen-Copilot", page_icon="⚙️", layout="wide")
 st.session_state.setdefault("history", [])
 history: list[Turn] = st.session_state.history
 
@@ -194,7 +192,7 @@ st.title("Fragen an den Copiloten")
 
 st.write("Beispiele:")
 for column, (label, example) in zip(st.columns(len(EXAMPLES)), EXAMPLES.items(), strict=True):
-    column.button(label, on_click=use_example, args=(example,), use_container_width=True)
+    column.button(label, on_click=use_example, args=(example,), width="stretch")
 
 with st.form("ask"):
     question = st.text_area("Frage", key="question", max_chars=500, height=80)
@@ -227,5 +225,5 @@ if history:
                 key=f"history-{index}",
                 on_click=show_from_history,
                 args=(index,),
-                use_container_width=True,
+                width="stretch",
             )

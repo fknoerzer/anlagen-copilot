@@ -29,6 +29,7 @@ anlagen-copilot-api = "anlagen_copilot.app:main"
 
 [project.optional-dependencies]
 ui = [
+    "altair>=6.3.0",
     "streamlit>=1.66.1",
 ]
 

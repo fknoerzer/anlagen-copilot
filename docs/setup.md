@@ -79,13 +79,13 @@ uv run anlagen-copilot-api
 
 Startet die API auf `http://127.0.0.1:8000`, nur von diesem Rechner aus erreichbar; zum Ausprobieren `http://127.0.0.1:8000/docs`. Die Datenbank muss laufen (`docker compose up -d`). Zum Entwickeln mit Neuladen beim Speichern: `uv run uvicorn anlagen_copilot.app:app --reload`.
 
-Eine kleine Oberfläche, die die API aufruft, liegt in `ui/app.py`. Sie braucht das optionale Extra `ui` und läuft neben der API:
+Eine kleine Oberfläche, die die API aufruft, startet `ui/streamlit_app.py`. Sie braucht das optionale Extra `ui` und läuft neben der API:
 
 ```bash
-uv run --extra ui streamlit run ui/app.py
+uv run --extra ui streamlit run ui/streamlit_app.py
 ```
 
-Im Modus „Vergleich“ geht jede Frage an beide Indizes, das kostet doppelt (rund 6 statt 3 Cent). Nach einer Änderung in `src/` müssen API und Oberfläche neu starten; ein Rerun in Streamlit lädt nur `ui/app.py` neu.
+Die Seite „Ergebnisse“ zeigt die Messungen aus `data/*/eval_runs.jsonl` und braucht weder API noch Datenbank. Im Modus „Vergleich“ geht jede Frage an beide Indizes, das kostet doppelt (rund 6 statt 3 Cent). Nach einer Änderung in `src/` müssen API und Oberfläche neu starten; ein Rerun in Streamlit lädt nur die Seiten in `ui/` neu.
 
 ## Entwicklungsbefehle
 

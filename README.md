@@ -204,7 +204,7 @@ API und Oberfläche, jeweils in einem eigenen Terminal:
 ```bash
 INGEST_STRATEGY=advanced uv run anlagen-copilot   # Docling-Index, rund 1 h 40 min auf der CPU
 uv run anlagen-copilot-api
-uv run --extra ui streamlit run ui/app.py
+uv run --extra ui streamlit run ui/streamlit_app.py
 ```
 
 Die API sucht standardmäßig im Docling-Index; wer nur `naive` indexiert hat, setzt `ASK_STRATEGY=naive` in der `.env`.

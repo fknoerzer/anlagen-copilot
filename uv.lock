@@ -69,6 +69,7 @@ dependencies = [
 
 [package.optional-dependencies]
 ui = [
+    { name = "altair" },
     { name = "streamlit" },
 ]
 
@@ -84,6 +85,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "altair", marker = "extra == 'ui'", specifier = ">=6.3.0" },
     { name = "anthropic", specifier = ">=1.6.0" },
     { name = "docling", specifier = ">=2.141.0" },
     { name = "fastapi", specifier = ">=0.140.0" },
