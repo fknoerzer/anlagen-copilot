@@ -23,7 +23,7 @@ Der Korpus umfasst **6 Handbücher** von SEW-EURODRIVE und Siemens (SINAMICS G12
 
 Das Eval-Set hat 37 Fragen: 32 beantwortbare mit zusammen 36 Belegseiten (Multi-Hop-Fragen brauchen zwei) und 5 unbeantwortbare. Ein **Beleg** ist die Handbuchseite, auf der die Antwort steht; gezählt wird beim Retrieval je Beleg, nicht je Frage.
 
-Gemessen auf Eval-Set v4, Commit `e85aab9`, Strategie `naive`; Spannen über drei Läufe (Retrieval, Fakten) bzw. fünf (Antworten), weil Reranker und Modelle nicht deterministisch sind. Läufe, Commits, Zählweise und die Zahlen je Fragetyp stehen in [docs/messungen.md](docs/messungen.md).
+Gemessen auf Eval-Set v4, Commit `e85aab9`, Strategie `naive`; Spannen über drei Läufe (Retrieval, Fakten) bzw. fünf (Antworten), weil Reranker und Modelle nicht deterministisch sind. Läufe, Commits, Zählweise und die Zahlen je Fragetyp stehen in [docs/messungen.md](docs/messungen.md), die Einzelfälle hinter den Zahlen in [docs/fehleranalyse.md](docs/fehleranalyse.md).
 
 ### Retrieval
 
@@ -90,7 +90,7 @@ Die Gesamtspalte ist die Summe der beiden Spalten davor, kein eigener Messwert; 
 
 ### Bekannte Grenzen
 
-Das Eval-Set ist klein: Eine Belegseite bewegt den Gesamtwert um knapp 3 Prozentpunkte, bei Multi-Hop um gut 12, und bei den fünf unbeantwortbaren Fragen zählt jede Frage 20 Prozentpunkte. Gemessen wird auf einem einzigen Korpus aus sechs Handbüchern zweier Hersteller. pypdf verliert die Spalten von Tabellen. Die Fakten bewertet ein Sprachmodell; die 55 Urteile des ersten Laufs sind von Hand nachgeprüft. Aussagen über die erforderlichen Fakten hinaus prüft es nicht: Ist eine davon falsch, gilt die Antwort trotzdem als vollständig.
+Das Eval-Set ist klein: Eine Belegseite bewegt den Gesamtwert um knapp 3 Prozentpunkte, bei Multi-Hop um gut 12, und bei den fünf unbeantwortbaren Fragen zählt jede Frage 20 Prozentpunkte. Gemessen wird auf einem einzigen Korpus aus sechs Handbüchern zweier Hersteller. pypdf verliert die Spalten von Tabellen. Die Fakten bewertet ein Sprachmodell; die 55 Urteile des ersten Laufs sind von Hand nachgeprüft. Aussagen über die erforderlichen Fakten hinaus prüft es nicht: Ist eine davon falsch, gilt die Antwort trotzdem als vollständig. Von 15 auffälligen Fragen scheitern 5 daran, dass die erklärende Seite nicht gefunden wird, 3 am Bildverständnis und 1 am Eval-Set selbst ([Fehleranalyse](docs/fehleranalyse.md)).
 
 ## Architektur
 

@@ -68,7 +68,7 @@ Antworten, die alle erforderlichen Fakten nennen, je drei Läufe:
 
 Die Nenner schwanken mit den Ablehnungen. Die Spanne bei `naive` (18 bis 20 Antworten) ist Streuung von Generierung und Judge zusammen: Bei q-034 nennt der Judge dieselbe Aussage einmal vollständig, einmal nicht. Die 55 Urteile des ersten Laufs sind von Hand nachgeprüft und stimmen; Aussagen über die erforderlichen Fakten hinaus prüft der Judge nicht.
 
-Durchgehend widersprochen: q-007 gibt die Ölsumpftemperatur (−15 bis +80 °C) als Umgebungstemperatur aus, q-014 nennt die Querkraftprüfung statt Ma · fB ≤ Ma max. Häufig fehlend: Angaben nur in einer Zeichnung (q-002) und Bedingungen neben der Hauptantwort (q-015, q-025). Je Lauf rund 0,15 $ und 2,8 s je Antwort.
+Bei q-007 streut `naive`: Von fünf Läufen nennen zwei die Umgebungstemperatur richtig (bis +40 °C, beide ohne Faktenprüfung), zwei geben die Ölsumpftemperatur (−15 bis +80 °C) als Umgebungstemperatur aus, einer legt sich nicht fest; `advanced` gibt in allen drei Läufen +80 °C aus. Durchgehend widersprochen: q-014 nennt die Querkraftprüfung statt Ma · fB ≤ Ma max. Häufig fehlend: Angaben nur in einer Zeichnung (q-002) und Bedingungen neben der Hauptantwort (q-015, q-025). Je Lauf rund 0,15 $ und 2,8 s je Antwort.
 
 ## `advanced` gegen `naive`
 
